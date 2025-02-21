@@ -1,8 +1,9 @@
 import cv2
-from insightface.app.common import Face
-from insightface.model_zoo import model_zoo
 import os
 import platform
+from insightface.model_zoo import model_zoo
+from insightface.app.common import Face
+from ultralytics import YOLO
 from pathlib import Path
 from utils.plots import Annotator
 from utils.general import LOGGER, Profile
@@ -19,14 +20,10 @@ ort.set_default_logger_severity(3)
 import numpy as np
 from config import config
 
+yolo_model_path = "yolov11n-face.pt"
 
-class InsightFaceDetector:
-    """
-    InsightFaceDetector is a class for detecting and recognizing faces using InsightFace models.
-    
-    Args:
-        media_manager: An optional media manager object for handling datasets.
-    """
+
+class YoloFaceDetector:
     def __init__(self, media_manager=None):
         self.det_model_path = os.path.expanduser("~/Models/det_10g.onnx")
         self.rec_model_path = os.path.expanduser("~/Models/w600k_r50.onnx")
@@ -46,80 +43,55 @@ class InsightFaceDetector:
 
     def load_model(self):
         """Load detection and recognition models"""
-        self.det_model = model_zoo.get_model(self.det_model_path)
-        self.det_model.prepare(ctx_id=0, input_size=(640, 640))
+        self.det_model = YOLO(yolo_model_path)
         
         self.rec_model = model_zoo.get_model(self.rec_model_path)
         self.rec_model.prepare(ctx_id=0)
 
-    def get_face_detect(self, imgs):
-        """
-        Detect faces in multiple input images
-        Args:
-            imgs: List of input images [img1, img2, ...] (BGR format)
-        Returns:
-            List of results for each image, where each result has format:
-            [
-                [bbox_array, confidence, keypoints_array],
-                [bbox_array, confidence, keypoints_array],
-                ...
-            ]
-            - bbox_array: numpy array [x1, y1, x2, y2]
-            - confidence: float value
-            - keypoints_array: numpy array of facial landmarks
-        """
+    def get_face_detects(self, imgs, verbose=False, conf=0.7):
         if not isinstance(imgs, list):
-            imgs = [imgs]
+            imgs = [imgs]  # Nếu chỉ có 1 ảnh, chuyển thành list
         
-        all_results = []
+        # Chạy batch inference
+        results = self.det_model(imgs, verbose=verbose, conf=conf)
         
-        for img in imgs:
-            bboxes, kpss = self.det_model.detect(img)
-            
-            if not len(bboxes):  # thay thế cho: if bboxes is None or bboxes.size == 0
-                all_results.append([])
-                continue
-            
-            results = [[box[:4], kp, box[4]] for box, kp in zip(bboxes, kpss)]
-            all_results.append(results)
-        
-        return all_results
+        # Parse kết quả
+        detections = []
+        for res in results:
+            faces = []
+            if res.boxes is not None:  # Kiểm tra xem có phát hiện nào không
+                for box in res.boxes.data.numpy():  # Chuyển tensor sang numpy
+                    x1, y1, x2, y2, conf = box[:5]  # Lấy tọa độ + độ tự tin
+                    faces.append(np.array([x1, y1, x2, y2, conf], dtype=np.float32))
+            detections.append(faces)  # Lưu danh sách khuôn mặt của ảnh này
 
-    def get_face_embedding(self, img, bb, kps, conf):
-        face = Face(bbox=bb, kps=kps, det_score=conf)
-        self.rec_model.get(img, face)
-        return face.normed_embedding
-    
-    def get_face_detects(self, imgs):
-        """
-        Detect faces for a list of images.
-
-        Args:
-            imgs (list of numpy.ndarray): List of images loaded using cv2.imread.
-
-        Returns:
-            list: A list of detection results for each image. If no faces are detected in an image,
-                None is added to the list. Each detection result is a tuple:
-                (bounding_boxes, keypoints), where:
-                - bounding_boxes: numpy.ndarray of shape (n_faces, 5) containing [x1, y1, x2, y2, confidence].
-                - keypoints: numpy.ndarray of shape (n_faces, 5, 2) containing facial landmarks.
-                If no faces are detected, (array([], shape=(0, 5), dtype=float32), array([], shape=(0, 5, 2), dtype=float32)) is returned.
-        """
-        if not isinstance(imgs, list):
-            imgs = [imgs]
-
-        all_results = []
-        for img in imgs:
-            result = self.det_model.detect(img)
-            if result[0].shape[0] == 0:
-                all_results.append(None)
-            else:
-                all_results.append(result)
-        return all_results
+        return detections  # Trả về list chứa list khuôn mặt của từng ảnh
 
     def get_face_embeddings(self, cropped_images):
         embeddings = self.rec_model.get_feat(cropped_images)
         return normalize_embeddings(embeddings)
+    
+    def crop_faces(self, img, faces, margin=10):
+        cropped_faces = []
+        h, w, _ = img.shape  # Lấy kích thước ảnh gốc
+
+        for bbox in faces:
+            x1, y1, x2, y2, conf = bbox  # Lấy tọa độ khuôn mặt
+            
+            # Thêm margin (đảm bảo không vượt quá kích thước ảnh)
+            x1 = max(0, x1 - margin)
+            y1 = max(0, y1 - margin)
+            x2 = min(w, x2 + margin)
+            y2 = min(h, y2 + margin)
+
+            # Cắt khuôn mặt từ ảnh
+            face_crop = img[int(y1):int(y2), int(x1):int(x2)].copy()
+            
+            # Chỉ thêm nếu ảnh cắt hợp lệ (tránh trường hợp lỗi)
+            if face_crop.shape[0] > 0 and face_crop.shape[1] > 0:
+                cropped_faces.append(face_crop)
+
+        return cropped_faces  # Trả về danh sách khuôn mặt đã cắt
     
     def get_frame(self, im0s, i, webcam=False):
         if webcam:
@@ -194,7 +166,7 @@ class InsightFaceDetector:
             return restored_img
         
         return None
-        
+    
     def run_inference(self):
         """
         Run inference on images/video and display results
@@ -205,8 +177,7 @@ class InsightFaceDetector:
 
         for path, _, im0s, vid_cap, s in self.dataset:
             # Inference
-            with dt[0]:
-                pred = self.get_face_detects(im0s)
+            pred = self.get_face_detects(im0s, verbose=True, conf=0.65)
 
             all_cropped_faces = []
             metadata = []
@@ -220,29 +191,22 @@ class InsightFaceDetector:
                     face_counts.append(0)
                     continue
                 
-                bboxes, keypoints = det
-                for bbox, kps in zip(bboxes, keypoints):
+                for bbox in det:
                     metadata.append({
                         "image_index": i,
-                        "bbox": bbox,
-                        "keypoints": kps
+                        "bbox": bbox
                     })
 
                 if self.media_manager.face_recognition:
-                    cropped_faces = crop_and_align_faces(im0, bboxes, keypoints, 0.7)
+                    cropped_faces = self.crop_faces(im0, faces=det, margin=10)
                     all_cropped_faces.extend(cropped_faces)
 
-                face_counts.append(len(bboxes))
-            
-            # for crop in all_cropped_faces:
-            #     print(len(all_cropped_faces))
-            #     print(is_real_face(img=crop, threshold=0.65))
+                face_counts.append(len(det))
 
-            # Search ids, emotion analysis, check raising hand, check small face (beta)
             ids = []
             emotions = []
 
-            with dt[1]:
+            with dt[0]:
                 if self.media_manager.face_recognition and all_cropped_faces:
                     all_embeddings = self.get_face_embeddings(all_cropped_faces)
                     ids = search_ids_mongoDB(all_embeddings, top_k=1, threshold=0.5)
@@ -312,7 +276,6 @@ class InsightFaceDetector:
                 results = [
                     {
                         "bbox": meta["bbox"],
-                        "keypoints": meta["keypoints"],
                         "id": id_info[0]["id"] if id_info else "unknown",
                         "similarity": f"{id_info[0]['similarity'] * 100:.2f}%" if id_info else "N/A",
                         "emotion": emotion["emotion"],
