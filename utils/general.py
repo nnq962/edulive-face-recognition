@@ -4,11 +4,11 @@ import glob
 import os
 import urllib
 from pathlib import Path
-from utils.logger_config import LOGGER
 import platform
-from utils import TryExcept, emojis
 from subprocess import check_output
 import pkg_resources as pkg
+from .misc import TryExcept, emojis
+from .logger import LOGGER
 
 
 FILE = Path(__file__).resolve()

@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import cv2
 import numpy as np
 import re
-from utils.logger_config import LOGGER
+from .logger import LOGGER
 import json
 import subprocess
 

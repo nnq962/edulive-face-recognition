@@ -4,20 +4,17 @@ from utils.dataloaders import LoadImages, LoadStreams, IMG_FORMATS, VID_FORMATS
 
 
 class MediaManager:
-    def __init__(self,
-                 source='0',
-                 project='runs',
-                 name='exp',
-                 exist_ok=False,
-                 save=False,
-                 vid_stride=1,
-                 view_img=False,
-                 save_txt=False,
-                 save_conf=False,
-                 save_crop=False,
-                 line_thickness=3,
-                 hide_labels=False,
-                 hide_conf=False):
+    def __init__(
+        self,
+        source='0',
+        project='runs',
+        name='exp',
+        exist_ok=False,
+        vid_stride=1,
+        save_txt=False,
+        save=False,
+        save_crop=False,
+    ):
         """
         Khởi tạo MediaManager với thông tin về nguồn đầu vào và cấu hình thư mục lưu kết quả.
         """
@@ -26,14 +23,9 @@ class MediaManager:
         self.name = name
         self.exist_ok = exist_ok
         self.save_txt = save_txt
-        self.save = save
         self.vid_stride = vid_stride
-        self.view_img = view_img
-        self.save_conf = save_conf
+        self.save = save
         self.save_crop = save_crop
-        self.line_thickness = line_thickness
-        self.hide_labels = hide_labels
-        self.hide_conf = hide_conf
 
         self.save_dir = None
         self.dataset = None
@@ -41,7 +33,6 @@ class MediaManager:
         self.batch_size = 1
         self.vid_path = []
         self.vid_writer = []
-        self.save_img = None
 
         self.prepare_dataloader()
         if self.save or self.save_crop:
@@ -56,7 +47,6 @@ class MediaManager:
         Xử lý nguồn đầu vào và tạo dataloader tương ứng.
         """
         # Xác định loại nguồn đầu vào
-        self.save_img = self.save
         is_file = Path(self.source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
         is_url = self.source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
         self.webcam = self.source.isnumeric() or self.source.endswith('.txt') or (is_url and not is_file)
@@ -76,7 +66,9 @@ class MediaManager:
                                        timeout=30,
                                        use_gstreamer=True)
             
-            self.batch_size = len(self.dataset) 
+            self.batch_size = len(self.dataset)
+            # TODO: fix cái này
+            self.camera_ids = [i for i in range(self.batch_size)]
         else:
             self.dataset = LoadImages(self.source, vid_stride=self.vid_stride)
 

@@ -1,21 +1,84 @@
-.DS_Store
+# -----------------------------
+# Python
+# -----------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Virtual env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+coverage.xml
+*.cover
+*.py,cover
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDEs / Editors
+.vscode/
 .idea/
-runs/
-cert_and_key/
-greeting.mp3
-3hinc.jpg
-device.txt
-attendance_images/
-log_main.log
-log_nohup.txt
+*.sublime-project
+*.sublime-workspace
+
+# Logs & debug
+*.log
+*.pot
+*.pyre/
+.mypy_cache/
+.dmypy.json
+.pytype/
+__pypackages__/
+
+# Profiling data
+.prof
+.profraw
+
+# -----------------------------
+# OS / MacOS
+# -----------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# -----------------------------
+# Node / Frontend (nếu dùng React/Vite)
+# -----------------------------
+node_modules/
+dist/
+*.local
+
+# Env files (nhớ commit .env.example thay vì .env)
 .env
-audio_cache
-supervisor
-main_config.json
+.env.*
+!.env.example
+
+# Folder
+data/
 models/
-users_data/
-logs/
-config.yaml
-users_data_deleted/
+runs/

@@ -1,21 +1,19 @@
 import numpy as np
 import cv2
-from config import config
 import os
-from annoy import AnnoyIndex
 import faiss
 import pickle
 import platform
 from insightface.utils import face_align
-from utils.logger_config import LOGGER
+from utils import LOGGER
+
 
 current_os = platform.system()
-
 if current_os == "Darwin":  # macOS
     faiss.omp_set_num_threads(1)  # Limit FAISS to use 1 thread
+    LOGGER.info(f"Limiting FAISS to use 1 thread")
 elif current_os == "Linux":
-    # Skip setting omp_set_num_threads
-    pass
+    LOGGER.info(f"Skipping setting omp_set_num_threads")
 
 
 def search_ids(embeddings, top_k=1, threshold=0.5):
