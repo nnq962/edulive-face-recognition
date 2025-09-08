@@ -19,10 +19,10 @@ class PathConfig(BaseConfig):
     MODEL_ARCFACE_URL: str
 
     # Model paths
-    DET_MODEL_PATH: Path = MODEL_DIR / "retinaface.onnx"
-    REC_MODEL_PATH: Path = MODEL_DIR / "arcface.onnx"
-    FAISS_FILE: Path = FAISS_DIR / "face_index.faiss"
-    FAISS_MAPPING_FILE: Path = FAISS_DIR / "faiss_mapping.pkl"
+    DET_MODEL_PATH: str = str(MODEL_DIR / "retinaface.onnx")
+    REC_MODEL_PATH: str = str(MODEL_DIR / "arcface.onnx")
+    FAISS_FILE_PATH: str = str(FAISS_DIR / "face_index.faiss")
+    FAISS_MAPPING_FILE_PATH: str = str(FAISS_DIR / "faiss_mapping.pkl")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import numpy as np
 import cv2
 import os
@@ -6,6 +7,8 @@ import pickle
 import platform
 from insightface.utils import face_align
 from utils import LOGGER
+from config import paths
+from typing import Optional, List
 
 
 current_os = platform.system()
@@ -14,6 +17,13 @@ if current_os == "Darwin":  # macOS
     LOGGER.info(f"Limiting FAISS to use 1 thread")
 elif current_os == "Linux":
     LOGGER.info(f"Skipping setting omp_set_num_threads")
+
+
+@dataclass
+class FaceRecognitionResult:
+    user_id: str
+    name: str
+    similarity: float
 
 
 def search_ids(embeddings, top_k=1, threshold=0.5):
@@ -29,111 +39,55 @@ def search_ids(embeddings, top_k=1, threshold=0.5):
         list: Danh sách kết quả, với mỗi phần tử là một dictionary hoặc None nếu không có kết quả hợp lệ.
     """
     # Kiểm tra file tồn tại trước khi load
-    if not os.path.exists(config.faiss_file):
-        LOGGER.warning(f"Missing Faiss index file: {config.faiss_file}")
+    if not os.path.exists(paths.FAISS_FILE_PATH):
+        LOGGER.warning(f"Missing Faiss index file: {paths.FAISS_FILE_PATH}")
         return [None] * len(embeddings)
 
-    if not os.path.exists(config.faiss_mapping_file):
-        LOGGER.warning(f"Missing mapping file: {config.faiss_mapping_file}")
+    if not os.path.exists(paths.FAISS_MAPPING_FILE_PATH):
+        LOGGER.warning(f"Missing mapping file: {paths.FAISS_MAPPING_FILE_PATH}")
         return [None] * len(embeddings)
 
     # Load FAISS index
-    index = faiss.read_index(config.faiss_file)
+    index = faiss.read_index(paths.FAISS_FILE_PATH)
 
     # Load ánh xạ index -> ID
-    with open(config.faiss_mapping_file, "rb") as f:
+    with open(paths.FAISS_MAPPING_FILE_PATH, "rb") as f:
         index_to_id = pickle.load(f)
 
     # Chuyển đổi embeddings thành dạng float32
     query_embeddings = np.array(embeddings, dtype=np.float32)
 
+    LOGGER.debug(f"index_to_id: {index_to_id}")
+
     # Thực hiện tìm kiếm với FAISS
     D, I = index.search(query_embeddings, k=top_k)  # D: Độ tương đồng, I: Chỉ số index FAISS
 
-    results = []
+    results: List[Optional[FaceRecognitionResult]] = []
+
     for query_idx in range(len(query_embeddings)):
-        query_results = [
-            {
-                "user_id": index_to_id[idx]["user_id"],
-                "name": index_to_id[idx]["name"],
-                "room_id": index_to_id[idx]["room_id"],
-                "similarity": float(similarity)
-            }
-            for idx, similarity in zip(I[query_idx], D[query_idx])
-            if idx != -1 and idx in index_to_id and similarity >= threshold  # Lọc bỏ kết quả không hợp lệ
-        ]
-        # Nếu không có kết quả hợp lệ, trả về None
-        results.append(query_results[0] if query_results else None)
+        query_matches = []
+        for idx, similarity in zip(I[query_idx], D[query_idx]):
+            if idx == -1 or idx not in index_to_id:
+                continue
+
+            sim = float(similarity)
+            LOGGER.debug(f"[search_ids] query={query_idx}, idx={idx}, similarity={sim:.4f}, threshold={threshold}")
+
+            if sim < threshold:
+                continue
+
+            query_matches.append(
+                FaceRecognitionResult(
+                    user_id=index_to_id[idx]["user_id"],
+                    name=index_to_id[idx]["name"],
+                    similarity=sim,
+                )
+            )
+
+        results.append(query_matches[0] if query_matches else None)
 
     return results
 
-def search_annoy(query_embedding, n_neighbors=1, threshold=None):
-    """
-    Tìm kiếm trong Annoy index sử dụng Euclidean Distance, và chuyển đổi về Cosine Similarity để so sánh với ngưỡng.
-
-    Parameters:
-        - query_embedding: Numpy array chứa vector cần tìm kiếm (đã chuẩn hóa trước).
-        - n_neighbors: Số lượng hàng xóm gần nhất cần tìm.
-        - threshold: Ngưỡng Cosine Similarity tối thiểu (nếu None, không áp dụng).
-
-    Returns:
-        - Dictionary chứa thông tin user nếu tìm thấy, None nếu không tìm thấy.
-    """
-
-    # Kiểm tra file tồn tại trước khi load
-    if not os.path.exists(config.ann_file):
-        LOGGER.warning(f"Missing Annoy index file: {config.ann_file}")
-        return None
-
-    if not os.path.exists(config.mapping_file):
-        LOGGER.warning(f"Missing mapping file: {config.mapping_file}")
-        return None
-
-    # Load Annoy Index (sử dụng Euclidean thay vì Angular)
-    annoy_index = AnnoyIndex(config.vector_dim, 'euclidean')
-    annoy_index.load(config.ann_file)
-
-    # Load Mapping từ file .npy
-    id_mapping = np.load(config.mapping_file, allow_pickle=True).item()
-
-    # Tìm n_neighbors gần nhất từ Annoy index
-    indices, distances = annoy_index.get_nns_by_vector(query_embedding, n_neighbors, include_distances=True)
-
-    # Chuyển đổi toàn bộ khoảng cách Euclidean sang Cosine Similarity
-    cosine_similarities = 1 - (np.array(distances) ** 2) / 2  # Vectorized computation
-
-    # Xây dựng danh sách kết quả
-    results = []
-    for i, index in enumerate(indices):
-        if index in id_mapping:
-            if threshold is None or cosine_similarities[i] >= threshold:
-                results.append({
-                    "id": id_mapping[index]["id"],
-                    "full_name": id_mapping[index]["full_name"],
-                    "similarity": cosine_similarities[i]
-                })
-
-    # Trả về dictionary nếu có 1 kết quả duy nhất, danh sách nếu có nhiều kết quả, None nếu không có kết quả
-    if len(results) == 0:
-        return None
-    elif len(results) == 1:
-        return results[0]  # Trả về dictionary thay vì list
-    else:
-        return results  # Trả về danh sách nếu có nhiều kết quả
-
-def search_annoys(query_embeddings, n_neighbors=1, threshold=None):
-    """
-    Tìm kiếm trong Annoy index với danh sách query_embeddings.
-
-    Parameters:
-        - query_embeddings: List các numpy array chứa các query embeddings.
-        - n_neighbors: Số lượng hàng xóm gần nhất cần tìm.
-        - threshold: Ngưỡng khoảng cách tối đa (nếu None, không áp dụng).
-
-    Returns:
-        - Danh sách kết quả [None, result1, None, result2, ...] (giữ nguyên thứ tự input).
-    """
-    return [search_annoy(query, n_neighbors, threshold) for query in query_embeddings]
 
 def crop_image(image, bbox):
     """
@@ -166,6 +120,7 @@ def crop_image(image, bbox):
 
     return cropped_image
 
+
 def expand_image(image, padding_size=50, padding_color=(0, 0, 0)):
     """
     Mở rộng toàn bộ ảnh bằng cách thêm viền xung quanh.
@@ -190,6 +145,7 @@ def expand_image(image, padding_size=50, padding_color=(0, 0, 0)):
     )
     return expanded_image
 
+
 def is_small_face(bbox, min_size=50):
     """
     Kiểm tra xem khuôn mặt có kích thước nhỏ hơn ngưỡng cho phép hay không.
@@ -210,6 +166,7 @@ def is_small_face(bbox, min_size=50):
 
     return width < min_size or height < min_size
 
+
 def normalize_embeddings(embeddings):
     """
     Chuẩn hóa danh sách các embedding.
@@ -222,6 +179,7 @@ def normalize_embeddings(embeddings):
     """
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     return embeddings / np.maximum(norms, 1e-8)  # Tránh chia cho 0
+
 
 def crop_and_align_faces(img, bboxes, keypoints, conf_threshold=0.5, image_size=112):
     """
@@ -245,6 +203,7 @@ def crop_and_align_faces(img, bboxes, keypoints, conf_threshold=0.5, image_size=
             cropped_faces.append(cropped_face)
     
     return cropped_faces
+
 
 def process_image(image_path, detector):
     """
@@ -304,7 +263,8 @@ def process_image(image_path, detector):
         message = f"Failed to process {image_path}: {str(e)}"
         LOGGER.error(message)
         return None, message
-    
+
+
 def crop_faces_for_emotion(frame, bboxes, conf_threshold=0.5):
     """
     Cắt khuôn mặt từ frame và điều chỉnh kích thước cho mô hình cảm xúc

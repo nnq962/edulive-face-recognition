@@ -10,10 +10,12 @@ media_manager = MediaManager(
 
 insightface_detector = InsightFaceDetector(
     face_detection=features.ENABLE_FACE_DETECTION,
+    face_detection_threshold=features.FACE_DETECTION_THRESHOLD,
     face_recognition=features.ENABLE_FACE_RECOGNITION,
+    face_recognition_threshold=features.FACE_RECOGNITION_THRESHOLD,
     show=features.ENABLE_SHOW,
     thickness=features.LINE_THICKNESS,
-    verbose=features.ENANLE_VERBOSE,
+    verbose=features.ENABLE_VERBOSE,
     media_manager=media_manager
 )
 

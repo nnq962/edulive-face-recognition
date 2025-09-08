@@ -1,5 +1,2 @@
-from config import paths
-
-print(f"Model dir: {paths.DET_MODEL_PATH}")
-
-print(type(paths.DET_MODEL_PATH))
+source_ids = [i for i in range(5)]
+print(source_ids)

@@ -67,8 +67,7 @@ class MediaManager:
                                        use_gstreamer=True)
             
             self.batch_size = len(self.dataset)
-            # TODO: fix cái này
-            self.camera_ids = [i for i in range(self.batch_size)]
+            self.source_ids = [i for i in range(self.batch_size)]
         else:
             self.dataset = LoadImages(self.source, vid_stride=self.vid_stride)
 

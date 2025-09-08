@@ -3,10 +3,12 @@ from .base import BaseConfig
 class FeatureConfig(BaseConfig):
     # Insightface config
     ENABLE_FACE_DETECTION: bool = True
-    ENABLE_FACE_RECOGNITION: bool = False
+    FACE_DETECTION_THRESHOLD: float = 0.5
+    ENABLE_FACE_RECOGNITION: bool = True
+    FACE_RECOGNITION_THRESHOLD: float = 0.005
     ENABLE_SHOW: bool = True
     LINE_THICKNESS: int = 3
-    ENANLE_VERBOSE: bool = True
+    ENABLE_VERBOSE: bool = True
 
     # Media manager config
     SOURCE: str = "0"
