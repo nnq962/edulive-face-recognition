@@ -504,7 +504,6 @@ class InsightFaceDetector:
         if self.face_detection:
             # Sử dụng current detections nếu có
             if self.state.current_detections is not None and source_id in self.state.current_detections.source_ids:
-                
                 camera_idx = self.state.current_detections.source_ids.index(source_id)
                 if camera_idx < len(self.state.current_detections.results_per_source):
                     bboxes, keypoints = self.state.current_detections.results_per_source[camera_idx]
