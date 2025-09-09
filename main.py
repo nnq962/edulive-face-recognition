@@ -3,6 +3,8 @@ from insightface_detector import InsightFaceDetector
 from media_manager import MediaManager
 from utils import LOGGER
 
+LOGGER.warning(f"{'TEST MODE' if features.ENABLE_TEST else 'PRODUCTION MODE'}")
+
 media_manager = MediaManager(
     source=features.SOURCE,
     save=features.ENABLE_SAVE,

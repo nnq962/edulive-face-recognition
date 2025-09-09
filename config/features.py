@@ -18,4 +18,7 @@ class FeatureConfig(BaseConfig):
     ENABLE_FACE_DATA_SAVE: bool = False
     FACE_DATA_SAVE_INTERVAL_SEC: int = 5  # seconds
 
+    # Test mode
+    ENABLE_TEST: bool = False # Khi test sẽ sử dụng dummy data tạo từ create_faiss_index_dummy.py
+
 features = FeatureConfig()

@@ -12,7 +12,8 @@ class PathConfig(BaseConfig):
     # Base paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     MODEL_DIR: Path = BASE_DIR / "models"
-    FAISS_DIR: Path = BASE_DIR / "data/faiss"
+    DATA_DIR: Path = BASE_DIR / "data"
+    FAISS_DIR: Path = DATA_DIR / "faiss"
 
     # Model URLs
     MODEL_RETINAFACE_URL: str
@@ -21,8 +22,10 @@ class PathConfig(BaseConfig):
     # Model paths
     DET_MODEL_PATH: str = str(MODEL_DIR / "retinaface.onnx")
     REC_MODEL_PATH: str = str(MODEL_DIR / "arcface.onnx")
-    FAISS_FILE_PATH: str = str(FAISS_DIR / "face_index.faiss")
-    FAISS_MAPPING_FILE_PATH: str = str(FAISS_DIR / "faiss_mapping.pkl")
+    FAISS_FILE_PATH: str = str(FAISS_DIR / "production" / "face_index.faiss")
+    FAISS_MAPPING_FILE_PATH: str = str(FAISS_DIR / "production" / "faiss_mapping.pkl")
+    FAISS_TEST_FILE_PATH: str = str(FAISS_DIR / "test" / "face_index.faiss")
+    FAISS_TEST_MAPPING_FILE_PATH: str = str(FAISS_DIR / "test" / "faiss_mapping.pkl")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
