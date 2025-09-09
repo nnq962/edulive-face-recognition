@@ -1,22 +1,26 @@
 from dataclasses import dataclass
-import numpy as np
 import cv2
-import os
-import faiss
 import pickle
-import platform
 from insightface.utils import face_align
 from utils import LOGGER
 from config import paths
 from typing import Optional, List
+import os
 
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
-current_os = platform.system()
-if current_os == "Darwin":  # macOS
-    faiss.omp_set_num_threads(1)  # Limit FAISS to use 1 thread
-    LOGGER.info(f"Limiting FAISS to use 1 thread")
-elif current_os == "Linux":
-    LOGGER.info(f"Skipping setting omp_set_num_threads")
+import numpy as np
+import faiss
+
+# import platform
+# current_os = platform.system()
+# if current_os == "Darwin":  # macOS
+#     faiss.omp_set_num_threads(1)  # Limit FAISS to use 1 thread
+#     LOGGER.info(f"Limiting FAISS to use 1 thread")
+# elif current_os == "Linux":
+#     LOGGER.info(f"Skipping setting omp_set_num_threads")
 
 
 @dataclass
@@ -57,34 +61,21 @@ def search_ids(embeddings, top_k=1, threshold=0.5):
     # Chuyển đổi embeddings thành dạng float32
     query_embeddings = np.array(embeddings, dtype=np.float32)
 
-    LOGGER.debug(f"index_to_id: {index_to_id}")
-
     # Thực hiện tìm kiếm với FAISS
     D, I = index.search(query_embeddings, k=top_k)  # D: Độ tương đồng, I: Chỉ số index FAISS
 
     results: List[Optional[FaceRecognitionResult]] = []
-
     for query_idx in range(len(query_embeddings)):
-        query_matches = []
-        for idx, similarity in zip(I[query_idx], D[query_idx]):
-            if idx == -1 or idx not in index_to_id:
-                continue
-
-            sim = float(similarity)
-            LOGGER.debug(f"[search_ids] query={query_idx}, idx={idx}, similarity={sim:.4f}, threshold={threshold}")
-
-            if sim < threshold:
-                continue
-
-            query_matches.append(
-                FaceRecognitionResult(
-                    user_id=index_to_id[idx]["user_id"],
-                    name=index_to_id[idx]["name"],
-                    similarity=sim,
-                )
+        matches = [
+            FaceRecognitionResult(
+                user_id=index_to_id[idx]["user_id"],
+                name=index_to_id[idx]["name"],
+                similarity=float(similarity),
             )
-
-        results.append(query_matches[0] if query_matches else None)
+            for idx, similarity in zip(I[query_idx], D[query_idx])
+            if idx != -1 and idx in index_to_id and similarity >= threshold
+        ]
+        results.append(matches[0] if matches else None)
 
     return results
 

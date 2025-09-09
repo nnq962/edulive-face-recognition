@@ -1,5 +1,4 @@
 import cv2
-import os
 import platform
 from insightface.model_zoo import model_zoo
 from pathlib import Path
@@ -13,6 +12,8 @@ import threading
 import queue
 from dataclasses import dataclass
 from typing import List, Tuple, Optional, Dict, Any
+import onnxruntime as ort
+ort.set_default_logger_severity(3)
 
 
 @dataclass
@@ -56,7 +57,7 @@ class ThreadedInferenceState:
 
 class InsightFaceDetector:
     """
-    Face detector using InsightFace with sequential multi-camera pipeline
+    Face detector using InsightFace with sequential pipeline
     """
     def __init__(
         self,
@@ -92,6 +93,7 @@ class InsightFaceDetector:
             self.save_dir = self.media_manager.save_dir
             self.save = self.media_manager.save
             self.save_crop = self.media_manager.save_crop
+            self.needs_rendering = self.show or self.save or self.save_crop
         else:
             raise ValueError("Media manager is required")
 
@@ -207,7 +209,7 @@ class InsightFaceDetector:
         
         for frame, (bboxes, keypoints) in zip(frames, detection_results):
             if len(bboxes) > 0:
-                cropped_faces = crop_and_align_faces(frame, bboxes, keypoints, self.face_detection_threshold)
+                cropped_faces = crop_and_align_faces(frame, bboxes, keypoints, conf_threshold=self.face_detection_threshold)
                 all_cropped_faces.extend(cropped_faces)
                 face_counts.append(len(cropped_faces))
             else:
@@ -241,22 +243,27 @@ class InsightFaceDetector:
 
     def _detection_worker(self):
         """Detection thread worker - only handles detection"""
-        LOGGER.info("Multi-camera detection thread started")
+        LOGGER.info("Detection thread started")
         
         while self.state.running:
             try:
-                # Lấy multi-camera frames từ queue
-                multi_frame_data = self.state.detection_input_queue.get(timeout=0.1)
+                # Lấy frames từ queue
+                frame_data = self.state.detection_input_queue.get(timeout=0.1)
                 
-                if multi_frame_data is None:  # Shutdown signal
+                if frame_data is None:  # Shutdown signal
                     break
                     
-                frames, source_ids, frame_id = multi_frame_data
+                frames, source_ids, frame_id = frame_data
                 
                 # Batch detection cho tất cả sources
                 detection_results, detection_time = self.detect_faces(frames)
+
+                if self.verbose and not self.face_recognition:
+                    total_faces = sum(len(bboxes) for bboxes, _ in detection_results)
+                    face_text = "Face" if total_faces == 1 else "Faces"
+                    LOGGER.info(f"Frame {frame_id}: Det={detection_time:.3f}s | {total_faces} {face_text}")
                 
-                # Tạo multi-source detection result
+                # Tạo detection batch result
                 result = DetectionBatchResult(
                     results_per_source=detection_results,
                     source_ids=source_ids,
@@ -282,11 +289,11 @@ class InsightFaceDetector:
                 LOGGER.error(f"Detection worker error: {e}")
                 continue
         
-        LOGGER.info("Multi-camera detection thread stopped")
+        LOGGER.info("Detection thread stopped")
 
     def _recognition_worker(self):
         """Recognition thread worker - handles cropping, recognition, and search"""
-        LOGGER.info("Multi-source recognition thread started")
+        LOGGER.info("Recognition thread started")
         
         while self.state.running:
             try:
@@ -304,21 +311,38 @@ class InsightFaceDetector:
                 start_time = time.time()
                 
                 # Crop faces từ detection results
+                crop_start = time.time()
                 all_cropped_faces, face_counts = self._crop_faces_from_detection(frames, detection_results)
+                crop_time = time.time() - crop_start
                 
                 # Recognition cho tất cả faces
                 if all_cropped_faces:
                     all_embeddings, embedding_time = self.extract_face_embeddings(all_cropped_faces)
+
+                    search_start = time.time()
                     all_user_infos = search_ids(embeddings=all_embeddings, threshold=self.face_recognition_threshold)
-                    
+                    search_time = time.time() - search_start
+
+                    if self.verbose:
+                        total_faces = sum(face_counts)
+                        face_text = "Face" if total_faces == 1 else "Faces"
+                        rec_time = crop_time + embedding_time + search_time
+                        total_time = detection_result_data.processing_time + rec_time
+                        
+                        LOGGER.info(f"Frame {frame_id}: Det={detection_result_data.processing_time:.3f}s | "
+                                f"Rec={rec_time:.3f}s | Total={total_time:.3f}s | "
+                                f"{total_faces} {face_text}")
+
                     # Distribute results back to sources
                     results_per_source = self._distribute_recognition_results(all_user_infos, face_counts)
                 else:
+                    if self.verbose:
+                        LOGGER.info(f"Frame {frame_id}: Det={detection_result_data.processing_time:.3f}s | No faces detected")
                     results_per_source = [[] for _ in source_ids]
                 
                 total_recognition_time = time.time() - start_time
                 
-                # Tạo multi-source recognition result
+                # Tạo recognition batch result
                 result = RecognitionBatchResult(
                     results_per_source=results_per_source,
                     source_ids=source_ids,
@@ -344,7 +368,7 @@ class InsightFaceDetector:
                 LOGGER.error(f"Recognition worker error: {e}")
                 continue
         
-        LOGGER.info("Multi-source recognition thread stopped")
+        LOGGER.info("Recognition thread stopped")
 
     def start_threads(self):
         """Start detection and recognition threads"""
@@ -409,8 +433,8 @@ class InsightFaceDetector:
                 if self.state.pipeline_busy.acquire(blocking=False):
                     try:
                         # Gửi frames cho detection
-                        multi_frame_data = (im0s, self.source_ids, self.state.frame_counter)
-                        self.state.detection_input_queue.put_nowait(multi_frame_data)
+                        frame_data = (im0s, self.source_ids, self.state.frame_counter)
+                        self.state.detection_input_queue.put_nowait(frame_data)
                     except queue.Full:
                         # Queue full, skip this batch
                         pass
@@ -452,17 +476,18 @@ class InsightFaceDetector:
                 except queue.Empty:
                     pass
                 
-                # Render frames cho từng camera
-                for index, source_id in enumerate(self.source_ids):
-                    frame = self.get_frame(im0s, index, webcam=self.webcam)
-                    self._render_frame(im0=frame, path=path, img_index=index, source_id=source_id, vid_cap=vid_cap, windows=windows)
+                if self.needs_rendering:
+                    # Render frames cho từng camera
+                    for index, source_id in enumerate(self.source_ids):
+                        frame = self.get_frame(im0s, index, webcam=self.webcam)
+                        self._render_frame(im0=frame, path=path, source_index=index, source_id=source_id, vid_cap=vid_cap, windows=windows)
                     
         finally:
             self.stop_threads()
 
-    def _render_frame(self, im0, path, img_index, source_id, vid_cap, windows):
+    def _render_frame(self, im0, path, source_index, source_id, vid_cap, windows):
         """Render frame với current detection/recognition results cho specific camera"""
-        p = path[img_index] if self.webcam else path
+        p = path[source_index] if self.webcam else path
         p = Path(p)
         save_path = str(self.save_dir / f"{p.stem}_cam{source_id}{p.suffix}") if (self.save or self.save_crop) else None
         imc = im0.copy() if self.save_crop else None
@@ -475,57 +500,64 @@ class InsightFaceDetector:
         detection_time = 0.0
         recognition_time = 0.0
         
-        # Sử dụng current detections nếu có
-        if self.state.current_detections is not None and source_id in self.state.current_detections.source_ids:
-            
-            camera_idx = self.state.current_detections.source_ids.index(source_id)
-            if camera_idx < len(self.state.current_detections.results_per_source):
-                bboxes, keypoints = self.state.current_detections.results_per_source[camera_idx]
-                detection_time = self.state.current_detections.processing_time
-        
-        # Sử dụng current recognitions nếu có và match
-        if self.state.current_recognitions is not None and source_id in self.state.current_recognitions.source_ids and len(bboxes) > 0:
-            camera_idx = self.state.current_recognitions.source_ids.index(source_id)
-            if camera_idx < len(self.state.current_recognitions.results_per_source):
-                camera_user_infos = self.state.current_recognitions.results_per_source[camera_idx]
-                if len(camera_user_infos) == len(bboxes):
-                    user_infos = camera_user_infos
-                    recognition_time = self.state.current_recognitions.processing_time
-        
-        # Fallback to unknown nếu không có recognition results
-        if len(user_infos) != len(bboxes):
-            user_infos = [None] * len(bboxes)
-        
-        # Render boxes với timing info
-        for idx, bbox in enumerate(bboxes):
-            conf = bbox[4]
-            user_info = user_infos[idx] if idx < len(user_infos) else None
-            
-            if self.save or self.save_crop or self.show:
-                # Tạo label với timing info
-                if user_info:
-                    label = f"{user_info.get('name', 'Unknown')} {user_info.get('similarity', 0)*100:.1f}%"
-                    if self.verbose:
-                        label += f" (D:{detection_time:.2f}s R:{recognition_time:.2f}s)"
-                else:
-                    label = f"Face {conf:.2f}"
-                    if self.verbose:
-                        label += f" (D:{detection_time:.2f}s)"
+        # Chỉ xử lý detection nếu face_detection được bật
+        if self.face_detection:
+            # Sử dụng current detections nếu có
+            if self.state.current_detections is not None and source_id in self.state.current_detections.source_ids:
                 
-                color = (0, int(255 * conf), int(255 * (1 - conf)))
-                annotator.box_label(bbox[:4], label, color=color)
+                camera_idx = self.state.current_detections.source_ids.index(source_id)
+                if camera_idx < len(self.state.current_detections.results_per_source):
+                    bboxes, keypoints = self.state.current_detections.results_per_source[camera_idx]
+                    detection_time = self.state.current_detections.processing_time
             
-            # Save crop if needed
-            if self.save_crop:
-                crops_dir = Path(self.save_dir) / 'crops'
-                crops_dir.mkdir(parents=True, exist_ok=True)
-                face_crop = crop_image(imc, bbox[:4])
-                cv2.imwrite(str(crops_dir / f'{p.stem}_cam{source_id}_{idx}.jpg'), face_crop)
+            # Chỉ xử lý recognition nếu face_recognition được bật
+            if self.face_recognition:
+                # Sử dụng current recognitions nếu có và match
+                if self.state.current_recognitions is not None and source_id in self.state.current_recognitions.source_ids and len(bboxes) > 0:
+                    camera_idx = self.state.current_recognitions.source_ids.index(source_id)
+                    if camera_idx < len(self.state.current_recognitions.results_per_source):
+                        camera_user_infos = self.state.current_recognitions.results_per_source[camera_idx]
+                        if len(camera_user_infos) == len(bboxes):
+                            user_infos = camera_user_infos
+                            recognition_time = self.state.current_recognitions.processing_time
+                
+                # Fallback to unknown nếu không có recognition results
+                if len(user_infos) != len(bboxes):
+                    user_infos = [None] * len(bboxes)
+        
+        # Render boxes với logic conditional
+        if self.face_detection:
+            for idx, bbox in enumerate(bboxes):
+                conf = bbox[4]
+                user_info = user_infos[idx] if idx < len(user_infos) else None
+                
+                if self.save or self.save_crop or self.show:
+                    label = None
+                    
+                    if self.face_recognition and user_info is not None:
+                        # Có recognition result: hiển thị name + similarity + timing
+                        label = f"{user_info.name} {user_info.similarity*100:.1f}%"
+                        if self.verbose:
+                            label += f" (D:{detection_time:.2f}s R:{recognition_time:.2f}s)"
+                    elif not self.face_recognition:
+                        # Chỉ detection: không có label, chỉ bounding box
+                        label = None
+                    # Nếu face_recognition=True nhưng user_info=None: cũng không có label
+                    
+                    color = (0, int(255 * conf), int(255 * (1 - conf)))
+                    annotator.box_label(bbox[:4], label, color=color)
+            
+                # Save crop if needed
+                if self.save_crop:
+                    crops_dir = Path(self.save_dir) / 'crops'
+                    crops_dir.mkdir(parents=True, exist_ok=True)
+                    face_crop = crop_image(imc, bbox[:4])
+                    cv2.imwrite(str(crops_dir / f'{p.stem}_source{source_id}_{idx}.jpg'), face_crop)
         
         # Hiển thị frame
         im0 = annotator.result()
         if self.show:
-            window_name = f"{str(p)}_cam{source_id}"
+            window_name = f"{str(p)} source: {source_id}"
             if platform.system() == 'Linux' and window_name not in windows:
                 windows.append(window_name)
                 cv2.namedWindow(window_name, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
@@ -539,7 +571,7 @@ class InsightFaceDetector:
             if self.dataset.mode == 'image':
                 cv2.imwrite(save_path, im0)
             else:
-                self._save_video(img_index, save_path, vid_cap, im0)
+                self._save_video(source_index, save_path, vid_cap, im0)
 
     def _save_video(self, img_index, save_path, vid_cap, im0):
         """Function to save video frames"""
