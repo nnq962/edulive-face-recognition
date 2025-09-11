@@ -1,27 +1,25 @@
 // src/pages/users/UsersPage.tsx
 import React from 'react';
 import {
-  Table,
-  Tag,
-  message,
-  Typography,
-  Space,
-  Button,
-  Input,
+    Table,
+    Tag,
+    message,
+    Typography,
+    Space,
+    Button,
+    Input,
 } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { createStyles } from 'antd-style';
 import Highlighter from 'react-highlight-words';
 
 import type {
-  TableColumnsType,
-  TableColumnType,
-  InputRef,
+    TableColumnsType,
+    TableColumnType,
+    InputRef,
 } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
-import type { UserRecord } from './UserManagementModal';
-
-import UserManagementModal from './UserManagementModal';
+import UserDetailModal from './UserDetailModal';
 
 const { Text, Title } = Typography;
 
@@ -99,22 +97,22 @@ interface DataType {
 }
 
 const dataSource: DataType[] = [
-    { key: '1', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '1', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '2', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '3', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '4', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '4', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '5', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '6', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '7', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '7', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '8', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '9', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '10', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '10', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '11', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '12', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '13', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '13', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '14', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '15', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '16', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '16', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '17', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '18', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
 ];
@@ -123,10 +121,9 @@ export default function UsersPage() {
     const { styles } = useStyle();
 
     const [open, setOpen] = React.useState(false);
-    const [selected, setSelected] = React.useState<UserRecord | null>(null);
-    const [saving, setSaving] = React.useState(false);
+    const [selected, setSelected] = React.useState<DataType | null>(null);
 
-    const openUserModal = (record: UserRecord) => {
+    const openUserModal = (record: DataType) => {
         setSelected(record);
         setOpen(true);
     };
@@ -134,23 +131,6 @@ export default function UsersPage() {
     const handleClose = () => {
         setOpen(false);
         setSelected(null);
-    };
-
-    const handleSave = async (values: UserRecord) => {
-        setSaving(true);
-        try {
-            // TODO: call API update ở đây
-            message.success('Đã lưu thay đổi');
-            setOpen(false);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async (record: UserRecord) => {
-        // TODO: call API delete ở đây
-        message.success(`Đã xoá: ${record.name}`);
-        setOpen(false);
     };
 
     // state + ref
@@ -364,13 +344,18 @@ export default function UsersPage() {
                 footer={() => ''}
             />
 
-            <UserManagementModal
-                open={open}
+            <UserDetailModal
                 user={selected}
-                loading={saving}
-                onCancel={handleClose}
-                onSave={handleSave}
-                onDelete={handleDelete}
+                open={open}
+                onClose={handleClose}
+                onSave={(user) => {
+                    console.log('Lưu user:', user);
+                    // Xử lý logic lưu
+                }}
+                onDelete={(userId) => {
+                    console.log('Xóa user:', userId);
+                    // Xử lý logic xóa
+                }}
             />
         </>
     );
