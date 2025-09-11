@@ -1,11 +1,29 @@
 // src/pages/users/UsersPage.tsx
 import React from 'react';
-import { Table, Tag, Popconfirm, message, Typography, Space, Button, Tooltip } from 'antd';
-import type { TableColumnsType } from 'antd';
+import {
+  Table,
+  Tag,
+  message,
+  Typography,
+  Space,
+  Button,
+  Input,
+} from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { createStyles } from 'antd-style';
+import Highlighter from 'react-highlight-words';
 
-const { Text } = Typography;
-const { Title } = Typography;
+import type {
+  TableColumnsType,
+  TableColumnType,
+  InputRef,
+} from 'antd';
+import type { FilterDropdownProps } from 'antd/es/table/interface';
+import type { UserRecord } from './UserManagementModal';
+
+import UserManagementModal from './UserManagementModal';
+
+const { Text, Title } = Typography;
 
 const useStyle = createStyles(({ css }) => ({
     customTable: css`
@@ -69,6 +87,7 @@ const useStyle = createStyles(({ css }) => ({
 }));
 
 interface DataType {
+    user_id: string;
     key: React.Key;
     name: string;
     email: string;
@@ -80,35 +99,146 @@ interface DataType {
 }
 
 const dataSource: DataType[] = [
-    { key: '1', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '2', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '3', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '4', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '5', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '6', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '7', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '8', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '9', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '10', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '11', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '12', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '13', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '14', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '15', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
-    { key: '16', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
-    { key: '17', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '18', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '1', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '2', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '3', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '4', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '5', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '6', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '7', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '8', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '9', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '10', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '11', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '12', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '13', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '14', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '15', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '16', user_id: 'edu999', name: 'Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
+    { key: '17', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
+    { key: '18', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
 ];
 
 export default function UsersPage() {
     const { styles } = useStyle();
 
-    const onView = (record: DataType) => message.info(`Xem chi tiết: ${record.name}`);
-    const onEdit = (record: DataType) => message.success(`Sửa: ${record.name}`);
-    const onDelete = (record: DataType) => message.success(`Đã xoá: ${record.name}`);
+    const [open, setOpen] = React.useState(false);
+    const [selected, setSelected] = React.useState<UserRecord | null>(null);
+    const [saving, setSaving] = React.useState(false);
+
+    const openUserModal = (record: UserRecord) => {
+        setSelected(record);
+        setOpen(true);
+    };
+
+    const handleClose = () => {
+        setOpen(false);
+        setSelected(null);
+    };
+
+    const handleSave = async (values: UserRecord) => {
+        setSaving(true);
+        try {
+            // TODO: call API update ở đây
+            message.success('Đã lưu thay đổi');
+            setOpen(false);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (record: UserRecord) => {
+        // TODO: call API delete ở đây
+        message.success(`Đã xoá: ${record.name}`);
+        setOpen(false);
+    };
+
+    // state + ref
+    const [searchText, setSearchText] = React.useState('');
+    const [searchedColumn, setSearchedColumn] = React.useState<keyof DataType | ''>('');
+    const searchInput = React.useRef<InputRef>(null);
+
+    const handleSearch = (
+        selectedKeys: string[],
+        confirm: FilterDropdownProps['confirm'],
+        dataIndex: keyof DataType,
+    ) => {
+        confirm(); // áp dụng filter và ĐÓNG dropdown
+        setSearchText(selectedKeys[0]);
+        setSearchedColumn(dataIndex);
+    };
+
+    const handleReset = (clearFilters?: () => void) => {
+        clearFilters?.();
+        setSearchText('');
+        setSearchedColumn('');
+    };
+
+    const getColumnSearchProps = (dataIndex: keyof DataType): TableColumnType<DataType> => ({
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+            <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+                <Input
+                    ref={searchInput}
+                    placeholder={`Tìm ${dataIndex === 'name' ? 'tên' : String(dataIndex)}`}
+                    value={selectedKeys[0] as string}
+                    onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+                    onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+                    style={{ marginBottom: 8, display: 'block' }}
+                />
+                <Space>
+                    <Button
+                        type="primary"
+                        onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+                        icon={<SearchOutlined />}
+                        size="small"
+                        style={{ width: 90 }}
+                    >
+                        Tìm
+                    </Button>
+                    <Button
+                        onClick={() => clearFilters && handleReset(clearFilters)}
+                        size="small"
+                        style={{ width: 90 }}
+                    >
+                        Reset
+                    </Button>
+                </Space>
+            </div>
+        ),
+        filterIcon: (filtered) => (
+            <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+        ),
+        onFilter: (value, record) =>
+            String(record[dataIndex] ?? '')
+                .toLowerCase()
+                .includes(String(value).toLowerCase()),
+        filterDropdownProps: {
+            onOpenChange(open) {
+                if (open) setTimeout(() => searchInput.current?.select(), 100);
+            },
+        },
+        render: (text: any) =>
+            searchedColumn === dataIndex ? (
+                <Highlighter
+                    highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                    searchWords={[searchText]}
+                    autoEscape
+                    textToHighlight={text ? String(text) : ''}
+                />
+            ) : (
+                text
+            ),
+    });
 
     const columns: TableColumnsType<DataType> = [
-        // FIXED LEFT: Tên
+        {
+            title: 'Mã NV',
+            dataIndex: 'user_id',
+            key: 'user_id',
+            width: 80,
+            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            ellipsis: true,
+        },
         {
             title: 'Tên',
             dataIndex: 'name',
@@ -118,6 +248,7 @@ export default function UsersPage() {
             onCell: () => ({            // khoá không cho nở quá width
                 style: { maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
             }),
+            ...getColumnSearchProps('name'),
         },
         {
             title: 'Email',
@@ -197,85 +328,50 @@ export default function UsersPage() {
         {
             title: 'Hành động',
             key: 'action',
-            width: 200,
+            width: 100,
             render: (_, record) => (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: '100%',
-                    height: '100%',
-                    gap: 8  // Thay đổi giá trị này để điều chỉnh khoảng cách
-                }}>
-                    <Tag
-                        color="blue"
-                        style={{
-                            cursor: 'pointer',
-                            margin: 0  // Loại bỏ margin mặc định
-                        }}
-                        onClick={() => onView(record)}
-                    >
-                        Xem chi tiết
-                    </Tag>
-
-                    <Tag
-                        color="gold"
-                        style={{
-                            cursor: 'pointer',
-                            margin: 0  // Loại bỏ margin mặc định
-                        }}
-                        onClick={() => onEdit(record)}
-                    >
-                        Sửa
-                    </Tag>
-
-                    <Popconfirm
-                        title="Xoá người dùng"
-                        description={`Bạn chắc muốn xoá ${record.name}?`}
-                        okText="Xoá"
-                        cancelText="Huỷ"
-                        onConfirm={() => onDelete(record)}
-                    >
-                        <Tag
-                            color="red"
-                            style={{
-                                cursor: 'pointer',
-                                margin: 0  // Loại bỏ margin mặc định
-                            }}
-                        >
-                            Xoá
-                        </Tag>
-                    </Popconfirm>
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                    <Button type="primary" size="small" onClick={() => openUserModal(record)}>
+                        Quản lý
+                    </Button>
                 </div>
             ),
-        }
+        },
     ];
 
     return (
-        <Table<DataType>
-            className={styles.customTable}
-            columns={columns}
-            dataSource={dataSource}
-            bordered
-            tableLayout="fixed"
-            scroll={{ x: 1200 }}
-            pagination={false}
-            title={() => (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    {/* Tiêu đề in đậm */}
-                    <Title level={5} style={{ margin: 0 }}>
-                        Danh sách nhân viên
-                    </Title>
+        <>
+            <Table<DataType>
+                className={styles.customTable}
+                columns={columns}
+                dataSource={dataSource}
+                bordered
+                tableLayout="fixed"
+                scroll={{ x: 1200 }}
+                pagination={false}
+                title={() => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Title level={5} style={{ margin: 0 }}>
+                            Danh sách nhân viên
+                        </Title>
+                        <Space>
+                            <Button type="primary" onClick={() => message.info('Thêm nhân viên')}>
+                                Thêm nhân viên
+                            </Button>
+                        </Space>
+                    </div>
+                )}
+                footer={() => ''}
+            />
 
-                    {/* Các nút chức năng */}
-                    <Space>
-                        <Button type="primary" onClick={() => message.info('Thêm nhân viên')}>
-                            Thêm nhân viên
-                        </Button>
-                    </Space>
-                </div>
-            )}
-            footer={() => ''}
-        />
+            <UserManagementModal
+                open={open}
+                user={selected}
+                loading={saving}
+                onCancel={handleClose}
+                onSave={handleSave}
+                onDelete={handleDelete}
+            />
+        </>
     );
 }
