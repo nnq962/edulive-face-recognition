@@ -20,6 +20,7 @@ import type {
 } from 'antd';
 import type { FilterDropdownProps } from 'antd/es/table/interface';
 import UserDetailModal from './UserDetailModal';
+import AddUserModal from './AddUserModal';
 
 const { Text, Title } = Typography;
 
@@ -122,6 +123,7 @@ export default function UsersPage() {
 
     const [open, setOpen] = React.useState(false);
     const [selected, setSelected] = React.useState<DataType | null>(null);
+    const [addModalOpen, setAddModalOpen] = React.useState(false);
 
     const openUserModal = (record: DataType) => {
         setSelected(record);
@@ -339,7 +341,7 @@ export default function UsersPage() {
                             Danh sách nhân viên
                         </Title>
                         <Space>
-                            <Button type="primary" onClick={() => message.info('Thêm nhân viên')}>
+                            <Button type="primary" onClick={() => setAddModalOpen(true)}>
                                 Thêm nhân viên
                             </Button>
                         </Space>
@@ -359,6 +361,16 @@ export default function UsersPage() {
                 onDelete={(userId) => {
                     console.log('Xóa user:', userId);
                     // Xử lý logic xóa
+                }}
+            />
+
+            <AddUserModal
+                open={addModalOpen}
+                onClose={() => setAddModalOpen(false)}
+                onSave={(user) => {
+                    console.log('Thêm user mới:', user);
+                    // Xử lý logic thêm user
+                    setAddModalOpen(false);
                 }}
             />
         </>

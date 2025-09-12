@@ -28,12 +28,12 @@ export default function BaseModal({
             onCancel={onCancel}
             footer={footer}  // Truyền footer vào Modal
             width={{
-                xs: '90%',
-                sm: '80%',
-                md: '70%',
-                lg: '60%',
-                xl: '50%',
-                xxl: '40%',
+                xs: '95%',
+                sm: '85%',
+                md: '75%',
+                lg: '65%',
+                xl: '55%',
+                xxl: '45%',
             }}
         >
             {children}
