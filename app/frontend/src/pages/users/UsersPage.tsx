@@ -317,7 +317,7 @@ export default function UsersPage() {
             onFilter: (value, record) => record.active === value,
             render: (active: boolean) => (
                 <Tag color={active ? 'green' : 'volcano'}>
-                    {active ? 'Active' : 'Inactive'}
+                    {active ? 'ACTIVE' : 'INACTIVE'}
                 </Tag>
             ),
         },
