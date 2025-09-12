@@ -99,7 +99,7 @@ interface DataType {
 const dataSource: DataType[] = [
     { key: '1', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '2', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
-    { key: '3', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
+    { key: '3', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'Ban công', created_at: '2025-09-10 09:30', active: false },
     { key: '4', user_id: 'edu999', name: 'Nguyên Văn A', email: '123456789@edulive.net', role: 'admin', position: 'Dev AI', department: 'T1', created_at: '2025-09-10 09:30', active: true },
     { key: '5', user_id: 'edu999', name: 'Trần Văn B', email: '1234567@edulive.net', role: 'manager', position: 'Dev FrontEnd', department: 'T2', created_at: '2025-09-10 09:30', active: false },
     { key: '6', user_id: 'edu999', name: 'Nguyễn Ngọc Quyết', email: '1234567@edulive.net', role: 'user', position: 'Công nhân', department: 'T3', created_at: '2025-09-10 09:30', active: false },
@@ -215,7 +215,7 @@ export default function UsersPage() {
             title: 'Mã NV',
             dataIndex: 'user_id',
             key: 'user_id',
-            width: 80,
+            width: 85,
             onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
             ellipsis: true,
         },
@@ -229,6 +229,22 @@ export default function UsersPage() {
                 style: { maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
             }),
             ...getColumnSearchProps('name'),
+            render: (text: any, record: DataType) => (
+                searchedColumn === 'name' ? (
+                    <a onClick={() => openUserModal(record)}>
+                        <Highlighter
+                            highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                            searchWords={[searchText]}
+                            autoEscape
+                            textToHighlight={text ? String(text) : ''}
+                        />
+                    </a>
+                ) : (
+                    <a onClick={() => openUserModal(record)}>
+                        {text}
+                    </a>
+                )
+            ),
         },
         {
             title: 'Email',
@@ -236,6 +252,28 @@ export default function UsersPage() {
             key: 'email',
             width: 200,
             render: (text) => <Text ellipsis={{ tooltip: text }}>{text}</Text>,
+        },
+        {
+            title: 'Chức vụ',
+            dataIndex: 'position',
+            key: 'position',
+            width: 160,
+            render: (text) => <Text ellipsis={{ tooltip: text }}>{text}</Text>,
+        },
+        {
+            title: 'Phòng ban',
+            dataIndex: 'department',
+            key: 'department',
+            width: 110,
+            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+            ellipsis: true,
+        },
+        {
+            title: 'Tạo lúc',
+            dataIndex: 'created_at',
+            key: 'created_at',
+            width: 160,
+            ellipsis: true
         },
         {
             title: 'Vai trò',
@@ -281,40 +319,6 @@ export default function UsersPage() {
                 <Tag color={active ? 'green' : 'volcano'}>
                     {active ? 'Active' : 'Inactive'}
                 </Tag>
-            ),
-        },
-        {
-            title: 'Chức vụ',
-            dataIndex: 'position',
-            key: 'position',
-            width: 160,
-            render: (text) => <Text ellipsis={{ tooltip: text }}>{text}</Text>,
-        },
-        {
-            title: 'Phòng ban',
-            dataIndex: 'department',
-            key: 'department',
-            width: 110,
-            onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
-            ellipsis: true,
-        },
-        {
-            title: 'Tạo lúc',
-            dataIndex: 'created_at',
-            key: 'created_at',
-            width: 160,
-            ellipsis: true
-        },
-        {
-            title: 'Hành động',
-            key: 'action',
-            width: 100,
-            render: (_, record) => (
-                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                    <Button type="primary" size="small" onClick={() => openUserModal(record)}>
-                        Quản lý
-                    </Button>
-                </div>
             ),
         },
     ];
