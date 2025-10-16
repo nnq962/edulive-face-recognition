@@ -6,7 +6,7 @@ import numpy as np
 import faiss
 
 from utils import LOGGER
-from config import paths  # dùng paths.FAISS_FILE, paths.FAISS_MAPPING_FILE, paths.FAISS_DIR, paths.MODEL_DIR
+from config import paths  # dùng paths.FAISS_TEST_FILE_PATH, paths.FAISS_TEST_MAPPING_FILE_PATH, paths.FAISS_DIR, paths.MODEL_DIR
 
 # ==== cấu hình dummy ====
 NUM_USERS = 5
@@ -32,9 +32,11 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 def main():
     # 1) đảm bảo thư mục tồn tại
     paths.FAISS_DIR.mkdir(parents=True, exist_ok=True)
+    paths.FAISS_TEST_DIR.mkdir(parents=True, exist_ok=True)
     LOGGER.info(f"FAISS_DIR: {paths.FAISS_DIR}")
-    LOGGER.info(f"FAISS_FILE: {paths.FAISS_FILE_PATH}")
-    LOGGER.info(f"FAISS_MAPPING_FILE: {paths.FAISS_MAPPING_FILE_PATH}")
+    LOGGER.info(f"FAISS_TEST_DIR: {paths.FAISS_TEST_DIR}")
+    LOGGER.info(f"FAISS_FILE: {paths.FAISS_TEST_FILE_PATH}")
+    LOGGER.info(f"FAISS_MAPPING_FILE: {paths.FAISS_TEST_MAPPING_FILE_PATH}")
 
     # 2) sinh embeddings ngẫu nhiên + normalize
     assert len(DUMMY_USERS) == NUM_USERS, "Cập nhật NUM_USERS cho khớp DUMMY_USERS"
@@ -45,14 +47,14 @@ def main():
     # 3) build FAISS index (Inner Product)
     index = faiss.IndexFlatIP(EMBED_DIM)
     index.add(embs)
-    faiss.write_index(index, str(paths.FAISS_FILE_PATH))
+    faiss.write_index(index, str(paths.FAISS_TEST_FILE_PATH))
     LOGGER.info(f"✅ Wrote FAISS index to: {paths.FAISS_FILE_PATH}")
 
     # 4) build mapping index -> user info
     id_mapping = {i: {"user_id": u["user_id"], "name": u["name"]} for i, u in enumerate(DUMMY_USERS)}
-    with open(paths.FAISS_MAPPING_FILE_PATH, "wb") as f:
+    with open(paths.FAISS_TEST_MAPPING_FILE_PATH, "wb") as f:
         pickle.dump(id_mapping, f)
-    LOGGER.info(f"✅ Wrote mapping to: {paths.FAISS_MAPPING_FILE_PATH}")
+    LOGGER.info(f"✅ Wrote mapping to: {paths.FAISS_TEST_MAPPING_FILE_PATH}")
     LOGGER.info(f"Done. Users: {[u['user_id'] for u in DUMMY_USERS]}")
 
 

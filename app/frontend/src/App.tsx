@@ -1,32 +1,35 @@
-// src/App.tsx
-import { Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './layouts/AppLayout';
-import AuthLayout from './layouts/AuthLayout';
+import { useState } from 'react'
+import { Button } from 'antd'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
 
-import LoginPage from './pages/auth/LoginPage';
-import DashboardPage from './pages/dashboard/DashboardPage';
-import UsersPage from './pages/users/UsersPage';
+function App() {
+  const [count, setCount] = useState(0)
 
-export default function App() {
   return (
-    <Routes>
-      {/* "/" -> về /login */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-
-      {/* Nhóm trang AUTH (không padding 5px, login căn giữa) */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-      </Route>
-
-      {/* Nhóm trang APP (có padding 5px) */}
-      <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        {/* thêm các route khác ở đây */}
-      </Route>
-
-      {/* fallback */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
-  );
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <Button type="primary" onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </Button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
 }
+
+export default App

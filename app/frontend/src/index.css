@@ -1,53 +1,49 @@
-/* index.css */
-html,
-body,
-#root {
-    background-color: #ffffff !important;
-    /* ép nền trắng */
-    color: #000000;
-    /* text đen cho dễ đọc */
-    min-height: 100%;
-    margin: 0;
-    padding: 0;
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ===== ẨN SCROLLBAR TRÊN MỌI TRÌNH DUYỆT ===== */
-
-/* Firefox - ẩn scrollbar */
-* {
-    scrollbar-width: none !important;        /* Firefox */
-    -ms-overflow-style: none !important;     /* Internet Explorer và Edge */
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
 }
-
-/* WebKit (Chrome, Safari, Edge mới) - ẩn scrollbar */
-*::-webkit-scrollbar {
-    width: 0 !important;                     /* Ẩn scrollbar dọc */
-    height: 0 !important;                    /* Ẩn scrollbar ngang */
-    display: none !important;                /* Ẩn hoàn toàn */
-    background: transparent !important;
-}
-
-/* Đảm bảo vẫn có thể scroll */
-html, body {
-    overflow: auto;                          /* Vẫn cho phép scroll */
-}
-
-/* Tùy chọn: Chỉ ẩn scrollbar cho body và html nếu không muốn ảnh hưởng toàn bộ */
-/*
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
-}
-
-html {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
+a:hover {
+  color: #535bf2;
 }
 
 body {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
 }
-*/
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+} 
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
