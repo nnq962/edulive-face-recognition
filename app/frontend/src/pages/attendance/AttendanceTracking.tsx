@@ -44,54 +44,12 @@ const noteFilters = TAGS.map((tag) => ({
 }))
 
 const attendanceDetailsByDate: Record<string, Omit<AttendanceRecord, 'key' | 'date'>> = {
-    '2025-10-16': {
-        checkIn: '08:12',
-        checkOut: '17:35',
-        lastRecord: '17:35',
-        note: ['Đúng giờ'] as TagType[],
-    },
-    '2025-10-15': {
-        checkIn: '07:58',
-        checkOut: '17:02',
-        lastRecord: '17:02',
-        note: ['Về sớm'] as TagType[],
-    },
-    '2025-10-14': {
+    '2025-10-01': {
         checkIn: '-',
         checkOut: '-',
         lastRecord: '-',
         note: ['Đi muộn', 'Về sớm', 'Vắng sáng', 'Có phép'] as TagType[],
-    },
-    '2025-10-13': {
-        checkIn: '-',
-        checkOut: '-',
-        lastRecord: '-',
-        note: ['Nghỉ'] as TagType[],
-    },
-    '2025-10-12': {
-        checkIn: '-',
-        checkOut: '-',
-        lastRecord: '-',
-        note: ['Vắng sáng'] as TagType[],
-    },
-    '2025-10-11': {
-        checkIn: '-',
-        checkOut: '-',
-        lastRecord: '-',
-        note: ['Vắng chiều'] as TagType[],
-    },
-    '2025-10-10': {
-        checkIn: '-',
-        checkOut: '-',
-        lastRecord: '-',
-        note: ['Có phép'] as TagType[],
-    },
-    '2025-10-09': {
-        checkIn: '-',
-        checkOut: '-',
-        lastRecord: '-',
-        note: ['Đúng giờ'] as TagType[],
-    },
+    }
 }
 
 const buildAttendanceData = (month: Dayjs): AttendanceRecord[] => {
@@ -231,52 +189,52 @@ const AttendanceTracking: React.FC = () => {
                 bordered
                 scroll={{ x: 'max-content' }}
                 sticky
-            onRow={(record) => {
-                const weekend = isWeekend(record.date)
-                return {
-                    style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
-                    onMouseEnter: (e) => {
-                        if (weekend) {
-                            const row = e.currentTarget
-                            const cells = row.querySelectorAll('td')
-                            cells.forEach((cell: Element) => {
-                                (cell as HTMLElement).style.backgroundColor = '#ffe4e1'
-                            })
-                        }
-                    },
-                    onMouseLeave: (e) => {
-                        if (weekend) {
-                            const row = e.currentTarget
-                            const cells = row.querySelectorAll('td')
-                            cells.forEach((cell: Element) => {
-                                (cell as HTMLElement).style.backgroundColor = '#fff1f0'
-                            })
-                        }
-                    },
-                }
-            }}
-            title={() => (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 600, fontSize: 16 }}>Thông tin chấm công</div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <DatePicker
-                            picker="month"
-                            value={selectedMonth}
-                            onChange={handleMonthChange}
-                            format="YYYY-MM"
-                            allowClear={false}
-                        />
-                        <Button type="primary" onClick={() => console.log('Export clicked')}>
-                            Xuất dữ liệu
-                        </Button>
+                onRow={(record) => {
+                    const weekend = isWeekend(record.date)
+                    return {
+                        style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
+                        onMouseEnter: (e) => {
+                            if (weekend) {
+                                const row = e.currentTarget
+                                const cells = row.querySelectorAll('td')
+                                cells.forEach((cell: Element) => {
+                                    (cell as HTMLElement).style.backgroundColor = '#ffe4e1'
+                                })
+                            }
+                        },
+                        onMouseLeave: (e) => {
+                            if (weekend) {
+                                const row = e.currentTarget
+                                const cells = row.querySelectorAll('td')
+                                cells.forEach((cell: Element) => {
+                                    (cell as HTMLElement).style.backgroundColor = '#fff1f0'
+                                })
+                            }
+                        },
+                    }
+                }}
+                title={() => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontWeight: 600, fontSize: 16 }}>Thông tin chấm công</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <DatePicker
+                                picker="month"
+                                value={selectedMonth}
+                                onChange={handleMonthChange}
+                                format="YYYY-MM"
+                                allowClear={false}
+                            />
+                            <Button type="primary" onClick={() => console.log('Export clicked')}>
+                                Xuất dữ liệu
+                            </Button>
+                        </div>
                     </div>
-                </div>
-            )}
-            footer={() => (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                </div>
-            )}
-        />
+                )}
+                footer={() => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    </div>
+                )}
+            />
         </div>
     )
 }
