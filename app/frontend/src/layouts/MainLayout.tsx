@@ -51,6 +51,7 @@ const AppLayout: React.FC = () => {
         <Layout style={{ minHeight: '100vh' }}>
             <Sider
                 width={235}
+                collapsedWidth={80}
                 collapsible
                 collapsed={collapsed}
                 onCollapse={handleCollapse}
@@ -62,7 +63,8 @@ const AppLayout: React.FC = () => {
                     left: 0,
                     top: 0,
                     bottom: 0,
-                    boxShadow: '0 1px 6px rgba(0,0,0,0.08)'
+                    boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+                    transition: 'all 0.4s ease',
                 }}
                 trigger={
                     <div
@@ -83,11 +85,11 @@ const AppLayout: React.FC = () => {
                 <div
                     style={{
                         height: 56,
-                        margin: '12px',                     // vẫn có khoảng cách
-                        padding: '0 12px',
+                        margin: '12px',
+                        padding: collapsed ? 0 : '0 12px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        justifyContent: 'center',
                         gap: collapsed ? 0 : 8,
                         color: '#111',
                         fontWeight: 600,
@@ -95,25 +97,32 @@ const AppLayout: React.FC = () => {
                         borderRadius: 8,
                         background: 'rgba(0,0,0,0.04)',
                         border: '1px solid rgba(0,0,0,0.06)',
-                        width: 'calc(100% - 24px)',         // 👈 KHÔNG vượt quá Sider (100% - 2*margin)
+                        width: 'calc(100% - 24px)',
                         boxSizing: 'border-box',
-                        overflow: 'hidden',                 // 👈 chặn tràn khi đang trượt
+                        overflow: 'hidden',
+                        transition: 'all 0.4s ease',
                     }}
                 >
-                    <AppstoreOutlined style={{ fontSize: collapsed ? 20 : 18 }} />
-                    {!collapsed && (
-                        <span
-                            style={{
-                                flex: 1,
-                                minWidth: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}
-                        >
-                            Hệ thống chấm công
-                        </span>
-                    )}
+                    <AppstoreOutlined 
+                        style={{ 
+                            fontSize: 18,
+                            flexShrink: 0,
+                            transition: 'all 0.4s ease',
+                        }} 
+                    />
+                    <span
+                        style={{
+                            flex: collapsed ? 0 : 1,
+                            minWidth: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            opacity: collapsed ? 0 : 1,
+                            transition: 'all 0.4s ease',
+                        }}
+                    >
+                        Hệ thống chấm công
+                    </span>
                 </div>
 
                 <Menu
@@ -124,7 +133,7 @@ const AppLayout: React.FC = () => {
                     onClick={({ key }) => navigate(String(key))}
                 />
             </Sider>
-            <Layout style={{ marginLeft: collapsed ? 80 : 235 }}>
+            <Layout style={{ marginLeft: collapsed ? 80 : 235, transition: 'margin-left 0.4s ease' }}>
                 <Content style={{ margin: '16px' }}>
                     <div
                         style={{
