@@ -3,9 +3,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,10 +24,53 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  background: #ffffff;
   min-width: 320px;
   min-height: 100vh;
+}
+
+/* Ẩn scrollbar nhưng vẫn giữ chức năng cuộn */
+/* Cho Webkit browsers (Chrome, Safari, Edge) */
+body::-webkit-scrollbar,
+html::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  display: none;
+}
+
+/* Cho Firefox */
+html {
+  scrollbar-width: none;
+}
+
+body {
+  scrollbar-width: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+/* Cho IE và Edge Legacy */
+body {
+  -ms-overflow-style: none;
+}
+
+html {
+  -ms-overflow-style: none;
+}
+
+* {
+  -ms-overflow-style: none;
+}
+
+html, body, #root {
+  background: #ffffff !important;
+}
+
+.ant-layout, .ant-layout-content, .ant-layout-sider, .ant-layout-header {
+  background: #ffffff !important;
 }
 
 h1 {
@@ -36,10 +79,6 @@ h1 {
 } 
 
 @media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
   a:hover {
     color: #747bff;
   }
