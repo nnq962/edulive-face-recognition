@@ -263,7 +263,7 @@ const MainLayout: React.FC = () => {
                         borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
                         display: 'flex',
                         alignItems: 'center',
-                        padding: '0 16px',
+                        padding: '0 8px',
                         position: 'relative',
                         zIndex: 10,
                         justifyContent: 'space-between',

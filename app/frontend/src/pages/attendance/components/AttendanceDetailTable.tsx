@@ -257,14 +257,24 @@ const AttendanceDetailTable: React.FC = () => {
                 }}
                 title={() => (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontWeight: 600, fontSize: 16 }}>Thông tin chấm công</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{
+                            fontWeight: 600,
+                            fontSize: 16,
+                            overflow: 'hidden',           // ← Thêm
+                            textOverflow: 'ellipsis',     // ← Thêm
+                            whiteSpace: 'nowrap',         // ← Thêm
+                            marginRight: '8px'            // ← Thêm để có khoảng cách với button
+                        }}>
+                            Thông tin chấm công
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>  {/* ← Thêm flexShrink: 0 để button không bị co */}
                             <DatePicker
                                 picker="month"
                                 value={selectedMonth}
                                 onChange={handleMonthChange}
                                 format="YYYY-MM"
                                 allowClear={false}
+                                style={{ width: 102 }}
                             />
                             <Button type="primary" onClick={() => console.log('Export clicked')}>
                                 Xuất dữ liệu
@@ -273,7 +283,14 @@ const AttendanceDetailTable: React.FC = () => {
                     </div>
                 )}
                 footer={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{
+                            color: '#999',
+                            fontSize: '14px',
+                            fontStyle: 'italic'
+                        }}>
+                            * Những ngày được bôi đỏ là thứ 7 và chủ nhật.
+                        </span>
                     </div>
                 )}
             />
