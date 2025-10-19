@@ -40,6 +40,9 @@ const MainLayout: React.FC = () => {
 
     const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 768);
     const [notificationOpen, setNotificationOpen] = React.useState(false);
+    
+    // Mock số lượng phê duyệt
+    const [pendingApprovalsCount, setPendingApprovalsCount] = React.useState(97);
 
     // Mock data
     const mockNotifications = [
@@ -209,6 +212,7 @@ const MainLayout: React.FC = () => {
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'space-between',
                                 gap: '8px',
                                 padding: '10px 12px',
                                 paddingLeft: '8px',
@@ -233,10 +237,21 @@ const MainLayout: React.FC = () => {
                                 }
                             }}
                         >
-                            <span style={{ fontSize: '16px' }}>{config.icon}</span>
-                            <span style={{ fontSize: '16px', fontWeight: currentPath === path ? 600 : 500 }}>
-                                {config.title}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '16px' }}>{config.icon}</span>
+                                <span style={{ fontSize: '16px', fontWeight: currentPath === path ? 600 : 500 }}>
+                                    {config.title}
+                                </span>
+                            </div>
+                            {path === '/approvals' && pendingApprovalsCount > 0 && (
+                                <Badge 
+                                    count={pendingApprovalsCount} 
+                                    overflowCount={99}
+                                    style={{ 
+                                        backgroundColor: '#ff4d4f',
+                                    }}
+                                />
+                            )}
                         </div>
                     ))}
                 </div>
@@ -305,13 +320,65 @@ const MainLayout: React.FC = () => {
                                 }}
                             />
                         </div>
-                        <div style={{ marginLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '16px', color: '#000' }}>{currentRoute.icon}</span>
                             <span style={{ fontSize: '16px', fontWeight: 700, color: '#000' }}>{currentRoute.title}</span>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+                        {/* Active Dot with Ripple Effect */}
+                        <div
+                            style={{
+                                width: '32px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                position: 'relative',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    position: 'relative',
+                                    width: '8px',
+                                    height: '8px',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: '#52c41a',
+                                        position: 'absolute',
+                                    }}
+                                />
+                                <div
+                                    style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: '#52c41a',
+                                        position: 'absolute',
+                                        animation: 'ripple 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <style>{`
+                            @keyframes ripple {
+                                0% {
+                                    transform: scale(1);
+                                    opacity: 1;
+                                }
+                                100% {
+                                    transform: scale(3);
+                                    opacity: 0;
+                                }
+                            }
+                        `}</style>
                         {isMobile ? (
                             <>
                                 <div
@@ -404,7 +471,6 @@ const MainLayout: React.FC = () => {
                                 borderRadius: '4px',
                                 cursor: 'pointer',
                                 transition: 'background 0.2s',
-                                marginLeft: '8px',
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.06)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
