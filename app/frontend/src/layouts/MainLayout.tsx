@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Badge, Popover, Tabs, Drawer } from 'antd';
+import { Layout, Badge, Popover, Tabs, Drawer, Tooltip } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
     MenuOutlined,
@@ -40,9 +40,15 @@ const MainLayout: React.FC = () => {
 
     const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 768);
     const [notificationOpen, setNotificationOpen] = React.useState(false);
-    
+
     // Mock số lượng phê duyệt
-    const [pendingApprovalsCount, setPendingApprovalsCount] = React.useState(97);
+    const [pendingApprovalsCount] = React.useState(97);
+
+    // Mock trạng thái máy chấm công
+    const [deviceStatus] = React.useState({
+        isOnline: true, // true = online (xanh), false = offline (đỏ)
+        lastUpdate: '14:30', // Thời gian từ API
+    });
 
     // Mock data
     const mockNotifications = [
@@ -244,10 +250,10 @@ const MainLayout: React.FC = () => {
                                 </span>
                             </div>
                             {path === '/approvals' && pendingApprovalsCount > 0 && (
-                                <Badge 
-                                    count={pendingApprovalsCount} 
+                                <Badge
+                                    count={pendingApprovalsCount}
                                     overflowCount={99}
-                                    style={{ 
+                                    style={{
                                         backgroundColor: '#ff4d4f',
                                     }}
                                 />
@@ -328,45 +334,54 @@ const MainLayout: React.FC = () => {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
                         {/* Active Dot with Ripple Effect */}
-                        <div
-                            style={{
-                                width: '32px',
-                                height: '32px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: '4px',
-                                position: 'relative',
-                            }}
+                        <Tooltip
+                            title={deviceStatus.isOnline
+                                ? `MCC đang hoạt động (${deviceStatus.lastUpdate})`
+                                : `MCC không hoạt động (${deviceStatus.lastUpdate})`
+                            }
+                            placement="left"
+                            arrow={false}
                         >
                             <div
                                 style={{
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: '4px',
                                     position: 'relative',
-                                    width: '8px',
-                                    height: '8px',
                                 }}
                             >
                                 <div
                                     style={{
+                                        position: 'relative',
                                         width: '8px',
                                         height: '8px',
-                                        borderRadius: '50%',
-                                        background: '#52c41a',
-                                        position: 'absolute',
                                     }}
-                                />
-                                <div
-                                    style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        background: '#52c41a',
-                                        position: 'absolute',
-                                        animation: 'ripple 1s cubic-bezier(0, 0, 0.2, 1) infinite',
-                                    }}
-                                />
+                                >
+                                    <div
+                                        style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            background: deviceStatus.isOnline ? '#52c41a' : '#ff4d4f',
+                                            position: 'absolute',
+                                        }}
+                                    />
+                                    <div
+                                        style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            background: deviceStatus.isOnline ? '#52c41a' : '#ff4d4f',
+                                            position: 'absolute',
+                                            animation: 'ripple 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        </Tooltip>
                         <style>{`
                             @keyframes ripple {
                                 0% {
