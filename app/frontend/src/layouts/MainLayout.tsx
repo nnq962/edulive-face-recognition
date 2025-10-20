@@ -176,7 +176,7 @@ const MainLayout: React.FC = () => {
             {/* Sidebar */}
             <aside
                 style={{
-                    width: '250px',
+                    width: '220px',
                     position: 'fixed',
                     left: sidebarCollapsed ? '-250px' : '0',
                     top: 0,
@@ -266,7 +266,7 @@ const MainLayout: React.FC = () => {
             {/* Main Content Area */}
             <div style={{
                 position: 'fixed',
-                left: sidebarCollapsed ? '0' : '250px',
+                left: sidebarCollapsed ? '0' : '220px',
                 width: isMobile ? '100vw' : undefined,
                 right: isMobile ? undefined : 0,
                 top: 0,

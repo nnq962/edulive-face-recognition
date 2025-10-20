@@ -12,9 +12,9 @@ const TAGS = [
     'Đúng giờ',
     'Đi muộn',
     'Về sớm',
-    'Vắng sáng',
-    'Vắng chiều',
-    'Nghỉ',
+    'Nghỉ sáng',
+    'Nghỉ chiều',
+    'Nghỉ cả ngày',
     'Có phép',
 ] as const
 type TagType = typeof TAGS[number]
@@ -23,9 +23,9 @@ const tagColors: Record<string, string> = {
     'Đúng giờ': 'green',
     'Đi muộn': 'volcano',
     'Về sớm': 'orange',
-    'Vắng sáng': 'geekblue',
-    'Vắng chiều': 'purple',
-    'Nghỉ': '',
+    'Nghỉ sáng': 'geekblue',
+    'Nghỉ chiều': 'purple',
+    'Nghỉ cả ngày': '',
     'Có phép': 'blue',
 }
 
@@ -60,25 +60,25 @@ const attendanceDetailsByDate: Record<string, Omit<AttendanceRecord, 'key' | 'da
         checkIn: '-',
         checkOut: '-',
         lastRecord: '-',
-        note: ['Đi muộn', 'Về sớm', 'Vắng sáng', 'Có phép'] as TagType[],
+        note: ['Đi muộn', 'Về sớm', 'Nghỉ sáng', 'Có phép'] as TagType[],
     },
     '2025-10-13': {
         checkIn: '-',
         checkOut: '-',
         lastRecord: '-',
-        note: ['Nghỉ'] as TagType[],
+        note: ['Nghỉ cả ngày'] as TagType[],
     },
     '2025-10-12': {
         checkIn: '-',
         checkOut: '-',
         lastRecord: '-',
-        note: ['Vắng sáng'] as TagType[],
+        note: ['Nghỉ sáng'] as TagType[],
     },
     '2025-10-11': {
         checkIn: '-',
         checkOut: '-',
         lastRecord: '-',
-        note: ['Vắng chiều'] as TagType[],
+        note: ['Nghỉ chiều'] as TagType[],
     },
     '2025-10-10': {
         checkIn: '-',
@@ -130,7 +130,14 @@ const columns: TableProps<AttendanceRecord>['columns'] = [
         title: 'Ngày',
         dataIndex: 'date',
         key: 'date',
-        width: 150,
+        width: 115,
+        fixed: 'left',
+        onCell: (record) => {
+            const weekend = isWeekend(record.date)
+            return {
+                style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
+            }
+        },
         filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
             <div style={{ padding: 8 }}>
                 <DatePicker
@@ -223,7 +230,7 @@ const AttendanceDetailTable: React.FC = () => {
     }
 
     return (
-        <div style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.08)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden' }}>
             <Table<AttendanceRecord>
                 columns={columns}
                 dataSource={tableData}
@@ -256,18 +263,22 @@ const AttendanceDetailTable: React.FC = () => {
                     }
                 }}
                 title={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
                         <div style={{
                             fontWeight: 600,
                             fontSize: 16,
-                            overflow: 'hidden',           // ← Thêm
-                            textOverflow: 'ellipsis',     // ← Thêm
-                            whiteSpace: 'nowrap',         // ← Thêm
-                            marginRight: '8px'            // ← Thêm để có khoảng cách với button
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            marginRight: '8px'
                         }}>
-                            Thông tin chấm công
+                            Dữ liệu chấm công
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>  {/* ← Thêm flexShrink: 0 để button không bị co */}
+                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                             <DatePicker
                                 picker="month"
                                 value={selectedMonth}
@@ -282,17 +293,68 @@ const AttendanceDetailTable: React.FC = () => {
                         </div>
                     </div>
                 )}
-                footer={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{
-                            color: '#999',
-                            fontSize: '14px',
-                            fontStyle: 'italic'
-                        }}>
-                            * Những ngày được bôi đỏ là thứ 7 và chủ nhật.
-                        </span>
-                    </div>
-                )}
+                footer={() => {
+                    // Mock data summary
+                    const summary = {
+                        totalDays: 20,
+                        onTime: 18,
+                        late810: 1,
+                        late830: 1,
+                        earlyLeave: 1,
+                        morningAbsent: 0,
+                        afternoonAbsent: 0,
+                        fullDayOff: 0,
+                        fine: '100K',
+                    }
+
+                    return (
+                        <div>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gap: '8px 24px',
+                                marginBottom: '12px',
+                                paddingBottom: '12px',
+                                borderBottom: '1px solid #f0f0f0'
+                            }}>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Tổng ngày công:</strong> {summary.totalDays}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Đúng giờ:</strong> {summary.onTime}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Muộn sau 8:10:</strong> {summary.late810}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Muộn sau 8:30:</strong> {summary.late830}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Về sớm:</strong> {summary.earlyLeave}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Nghỉ sáng:</strong> {summary.morningAbsent}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Nghỉ chiều:</strong> {summary.afternoonAbsent}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Nghỉ cả ngày:</strong> {summary.fullDayOff}
+                                </span>
+                                <span style={{ fontSize: '14px' }}>
+                                    <strong>Tiền phạt:</strong> {summary.fine}
+                                </span>
+                            </div>
+                            <div style={{
+                                color: 'red',
+                                fontSize: '14px',
+                                fontStyle: 'italic'
+                            }}>
+                                Những ngày được bôi đỏ là thứ 7 và chủ nhật.
+                            </div>
+                        </div>
+                    )
+                }}
             />
         </div>
     )
