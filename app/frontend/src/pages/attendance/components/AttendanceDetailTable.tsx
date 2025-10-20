@@ -5,6 +5,7 @@ import type { FilterDropdownProps } from 'antd/es/table/interface'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import utc from 'dayjs/plugin/utc'
+import AttendanceDetailModal from './AttendanceDetailModal'
 
 dayjs.extend(utc)
 
@@ -214,6 +215,8 @@ const columns: TableProps<AttendanceRecord>['columns'] = [
 const AttendanceDetailTable: React.FC = () => {
     const defaultMonth = useMemo(() => dayjs().utcOffset(420).startOf('month'), [])
     const [selectedMonth, setSelectedMonth] = useState<Dayjs>(defaultMonth)
+    const [modalOpen, setModalOpen] = useState(false)
+    const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null)
 
     const tableData = useMemo(
         () => buildAttendanceData(selectedMonth),
@@ -229,6 +232,16 @@ const AttendanceDetailTable: React.FC = () => {
         setSelectedMonth(value.utcOffset(420, true).startOf('month'))
     }
 
+    const handleRowClick = (record: AttendanceRecord) => {
+        setSelectedRecord(record)
+        setModalOpen(true)
+    }
+
+    const handleCloseModal = () => {
+        setModalOpen(false)
+        setSelectedRecord(null)
+    }
+
     return (
         <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden' }}>
             <Table<AttendanceRecord>
@@ -241,7 +254,8 @@ const AttendanceDetailTable: React.FC = () => {
                 onRow={(record) => {
                     const weekend = isWeekend(record.date)
                     return {
-                        style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
+                        style: weekend ? { backgroundColor: '#fff1f0', cursor: 'pointer' } : { cursor: 'pointer' },
+                        onClick: () => handleRowClick(record),
                         onMouseEnter: (e) => {
                             if (weekend) {
                                 const row = e.currentTarget
@@ -355,6 +369,11 @@ const AttendanceDetailTable: React.FC = () => {
                         </div>
                     )
                 }}
+            />
+            <AttendanceDetailModal
+                open={modalOpen}
+                onClose={handleCloseModal}
+                record={selectedRecord}
             />
         </div>
     )
