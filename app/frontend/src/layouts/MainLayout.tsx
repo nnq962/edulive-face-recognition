@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Badge, Popover, Tabs, Drawer, Tooltip } from 'antd';
+import { Layout, Badge, Tabs, Tooltip } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
     MenuOutlined,
@@ -8,7 +8,6 @@ import {
     CheckCircleOutlined,
     UserOutlined,
     SettingOutlined,
-    MailOutlined,
     ScheduleOutlined
 } from '@ant-design/icons';
 import LogoutIcon from '../assets/icons/logout.svg';
@@ -39,7 +38,6 @@ const MainLayout: React.FC = () => {
     });
 
     const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 768);
-    const [notificationOpen, setNotificationOpen] = React.useState(false);
 
     // Mock số lượng phê duyệt
     const [pendingApprovalsCount] = React.useState(97);
@@ -91,79 +89,6 @@ const MainLayout: React.FC = () => {
             document.documentElement.style.overscrollBehavior = '';
         };
     }, []);
-
-    // Notification content
-    const NotificationContent = () => {
-        const contentStyle = {
-            width: '100%',
-            maxHeight: '400px',
-            overflowY: 'auto' as const,
-        };
-
-        const items = [
-            {
-                key: 'all',
-                label: 'Tất cả',
-                children: (
-                    <div style={contentStyle}>
-                        {mockNotifications.map(notif => (
-                            <div
-                                key={notif.id}
-                                style={{
-                                    padding: '12px',
-                                    borderBottom: '1px solid #f0f0f0',
-                                    cursor: 'pointer',
-                                    transition: 'background 0.2s',
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                                <div style={{ fontWeight: 600, marginBottom: '4px' }}>{notif.title}</div>
-                                <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>{notif.message}</div>
-                                <div style={{ fontSize: '12px', color: '#999' }}>{notif.time}</div>
-                            </div>
-                        ))}
-                    </div>
-                ),
-            },
-            {
-                key: 'unread',
-                label: 'Chưa đọc',
-                children: (
-                    <div style={{ width: '100%', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
-                        Không có thông báo chưa đọc
-                    </div>
-                ),
-            },
-            {
-                key: 'read',
-                label: 'Đã đọc',
-                children: (
-                    <div style={contentStyle}>
-                        {mockNotifications.map(notif => (
-                            <div
-                                key={notif.id}
-                                style={{
-                                    padding: '12px',
-                                    borderBottom: '1px solid #f0f0f0',
-                                    cursor: 'pointer',
-                                    transition: 'background 0.2s',
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'}
-                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            >
-                                <div style={{ fontWeight: 600, marginBottom: '4px' }}>{notif.title}</div>
-                                <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>{notif.message}</div>
-                                <div style={{ fontSize: '12px', color: '#999' }}>{notif.time}</div>
-                            </div>
-                        ))}
-                    </div>
-                ),
-            },
-        ];
-
-        return <Tabs defaultActiveKey="all" items={items} />;
-    };
 
     return (
         <div style={{
@@ -394,88 +319,6 @@ const MainLayout: React.FC = () => {
                                 }
                             }
                         `}</style>
-                        {isMobile ? (
-                            <>
-                                <div
-                                    style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.2s',
-                                        background: notificationOpen ? '#E6F4FF' : 'transparent',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (!notificationOpen) {
-                                            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.06)';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (!notificationOpen) {
-                                            e.currentTarget.style.background = 'transparent';
-                                        }
-                                    }}
-                                    onClick={() => setNotificationOpen(true)}
-                                >
-                                    <Badge dot={true}>
-                                        <MailOutlined style={{ fontSize: '16px', color: '#000' }} />
-                                    </Badge>
-                                </div>
-                                <Drawer
-                                    title="Thông báo"
-                                    placement="bottom"
-                                    open={notificationOpen}
-                                    onClose={() => setNotificationOpen(false)}
-                                    height="70vh"
-                                    styles={{
-                                        body: { paddingTop: 0 }
-                                    }}
-                                >
-                                    <NotificationContent />
-                                </Drawer>
-                            </>
-                        ) : (
-                            <Popover
-                                content={<NotificationContent />}
-                                title="Thông báo"
-                                trigger="click"
-                                open={notificationOpen}
-                                onOpenChange={setNotificationOpen}
-                                placement="bottomRight"
-                            >
-                                <div
-                                    style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.2s',
-                                        background: notificationOpen ? '#E6F4FF' : 'transparent',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (!notificationOpen) {
-                                            e.currentTarget.style.background = 'rgba(0, 0, 0, 0.06)';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (!notificationOpen) {
-                                            e.currentTarget.style.background = 'transparent';
-                                        }
-                                    }}
-                                >
-                                    <Badge dot={true}>
-                                        <MailOutlined style={{ fontSize: '16px', color: '#000' }} />
-                                    </Badge>
-                                </div>
-                            </Popover>
-                        )}
-
                         <div
                             style={{
                                 width: '32px',

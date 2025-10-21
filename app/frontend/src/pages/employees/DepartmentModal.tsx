@@ -280,13 +280,17 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             cancelText="Đóng"
             cancelButtonProps={{ style: { display: 'none' } }}
         >
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
                 <Button
                     type="dashed"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
                     disabled={editingKey !== ''}
                     block
+                    style={{
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+                        borderRadius: 8,
+                    }}
                 >
                     Thêm phòng ban mới
                 </Button>
@@ -301,6 +305,11 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     locale={{
                         emptyText: 'Chưa có phòng ban nào. Nhấn "Thêm phòng ban mới" để bắt đầu.',
                     }}
+                    style={{
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+                        borderRadius: '8px 8px 8px 8px',
+                        overflow: 'hidden', // Để borderRadius hiệu lực
+                    }}
                 />
 
                 <div style={{
@@ -311,7 +320,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     color: '#666',
                 }}>
                     <strong>Lưu ý:</strong>
-                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', borderRadius: 8 }}>
                         <li>Nhấn "Thêm phòng ban mới" để tạo phòng ban</li>
                         <li>Nhấn "Sửa" để chỉnh sửa tên phòng ban</li>
                         <li>Nhấn "Xóa" để xóa phòng ban (lưu ý: nhân viên thuộc phòng ban này sẽ cần được cập nhật lại)</li>

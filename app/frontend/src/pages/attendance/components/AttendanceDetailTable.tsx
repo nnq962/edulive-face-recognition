@@ -244,15 +244,6 @@ const AttendanceDetailTable: React.FC = () => {
         [selectedMonth],
     )
 
-    const handleMonthChange = (value: Dayjs | null) => {
-        if (!value) {
-            setSelectedMonth(defaultMonth)
-            return
-        }
-
-        setSelectedMonth(value.utcOffset(420, true).startOf('month'))
-    }
-
     const handleRowClick = (record: AttendanceRecord) => {
         setSelectedRecord(record)
         setModalOpen(true)
@@ -264,11 +255,23 @@ const AttendanceDetailTable: React.FC = () => {
     }
 
     return (
-        <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{
+            boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+            overflow: 'hidden',
+            borderRadius: 8,
+        }}>
             <Table<AttendanceRecord>
                 columns={columns}
                 dataSource={tableData}
-                pagination={false}
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true, // Hiển thị dropdown chọn số item/page
+                    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`, // Hiển thị tổng số
+                    pageSizeOptions: ['10', '20', '50', '100'], // Các option cho dropdown
+                    style: {
+                        paddingRight: '8px',
+                    },
+                }}
                 bordered
                 scroll={{ x: 'max-content' }}
                 sticky

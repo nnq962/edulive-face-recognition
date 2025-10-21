@@ -332,7 +332,7 @@ const EmployeeManagement: React.FC = () => {
 
     return (
         <div style={{
-            boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)',
+            boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
             borderRadius: 8,
             overflow: 'hidden'
         }}>
@@ -344,10 +344,13 @@ const EmployeeManagement: React.FC = () => {
                     style: { cursor: 'pointer' },
                 })}
                 pagination={{
-                    pageSize: 20,
-                    showSizeChanger: true,
-                    showTotal: (total) => `Tổng ${total} nhân viên`,
-                    current: 1,
+                    pageSize: 10,
+                    showSizeChanger: true, // Hiển thị dropdown chọn số item/page
+                    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`, // Hiển thị tổng số
+                    pageSizeOptions: ['10', '20', '50', '100'], // Các option cho dropdown
+                    style: {
+                        paddingRight: '8px',
+                    },
                 }}
                 scroll={{ x: 1200 }}
                 bordered

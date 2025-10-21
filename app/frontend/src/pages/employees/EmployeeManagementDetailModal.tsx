@@ -276,7 +276,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                         </Form.Item>
                                     </Form>
 
-                                    <Space style={{ width: '100%', justifyContent: 'space-between', marginTop: 16 }}>
+                                    <Space style={{ width: '100%', justifyContent: 'space-between', marginTop: 8 }}>
                                         <Popconfirm
                                             title="Xóa nhân viên"
                                             description="Bạn có chắc chắn muốn xóa nhân viên này?"
@@ -316,8 +316,9 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                     <Card
                                         title="Ảnh khuôn mặt hiện có"
                                         style={{
-                                            marginBottom: 16,
-                                            boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)'
+                                            marginBottom: 8,
+                                            boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+                                            borderRadius: 8,
                                         }}
                                         size="small"
                                     >
@@ -401,8 +402,9 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                     <Card
                                         title="Tải lên ảnh mới"
                                         style={{
-                                            marginBottom: 16,
-                                            boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)'
+                                            marginBottom: 8,
+                                            boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+                                            borderRadius: 8,
                                         }}
                                         size="small"
                                     >
@@ -420,7 +422,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                             padding: 12,
                                             background: '#f5f5f5',
                                             borderRadius: 4,
-                                            marginTop: 16
+                                            marginTop: 8
                                         }}>
                                             <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
                                                 <strong>Lưu ý:</strong>

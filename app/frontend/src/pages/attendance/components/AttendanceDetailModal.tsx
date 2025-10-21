@@ -185,11 +185,11 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
             footer={null}
             width={800}
             centered
-            style={{ top: 8, paddingBottom: 8 }}
             styles={{
                 body: {
                     maxHeight: 'calc(100vh - 16px - 55px - 24px)',
                     overflowY: 'auto',
+                    padding: '16px', // Thêm padding để shadow không bị cắt
                 }
             }}
         >
@@ -197,7 +197,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 title="Thông tin chấm công"
                 style={{
                     marginBottom: 8,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)',
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
                 }}
                 size="small"
             >
@@ -231,7 +231,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 title="Ảnh chấm công"
                 style={{
                     marginBottom: 8,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)'
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
                 }}
                 size="small"
             >
@@ -344,8 +344,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 title="Báo cáo"
                 size="small"
                 style={{
-                    marginBottom: 8,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)'
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
                 }}
             >
                 <Tabs items={tabItems} />

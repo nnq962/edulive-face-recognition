@@ -21,22 +21,22 @@ const AttendanceReport: React.FC = () => {
 
     const enterLoading = (index: number) => {
         console.log('Start loading:', index);
-    
+
         setLoadings((prevLoadings) => {
-          const newLoadings = [...prevLoadings];
-          newLoadings[index] = true;
-          return newLoadings;
-        });
-    
-        setTimeout(() => {
-          setLoadings((prevLoadings) => {
             const newLoadings = [...prevLoadings];
-            newLoadings[index] = false;
+            newLoadings[index] = true;
             return newLoadings;
-          });
+        });
+
+        setTimeout(() => {
+            setLoadings((prevLoadings) => {
+                const newLoadings = [...prevLoadings];
+                newLoadings[index] = false;
+                return newLoadings;
+            });
         }, 3000);
-      };
-      
+    };
+
     // Mock data
     const data: ReportData[] = [
         {
@@ -159,7 +159,7 @@ const AttendanceReport: React.FC = () => {
             title: 'Loại báo cáo',
             dataIndex: 'reportType',
             key: 'reportType',
-            width: 110,
+            width: 120,
             render: (reportType: string) => (
                 <Tag color={getReportTypeColor(reportType)}>{reportType}</Tag>
             ),
@@ -222,11 +222,25 @@ const AttendanceReport: React.FC = () => {
     ]
 
     return (
-        <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden', marginBottom: 0, marginTop: 8 }}>
+        <div style={{
+            boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+            borderRadius: 8,
+            overflow: 'hidden',
+            marginBottom: 0,
+            marginTop: 8
+        }}>
             <Table
                 columns={columns}
                 dataSource={data}
-                pagination={false}
+                pagination={{
+                    pageSize: 10,
+                    showSizeChanger: true, // Hiển thị dropdown chọn số item/page
+                    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`, // Hiển thị tổng số
+                    pageSizeOptions: ['10', '20', '50', '100'], // Các option cho dropdown
+                    style: {
+                        paddingRight: '8px',
+                    },
+                }}
                 scroll={{ x: 1200 }}
                 bordered
                 title={() => (
@@ -276,11 +290,11 @@ const AttendanceReport: React.FC = () => {
                         </div>
                     </div>
                 )}
-                footer={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 14 }}>Tổng số báo cáo: {data.length}</div>
-                    </div>
-                )}
+                // footer={() => (
+                //     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                //         <div style={{ fontSize: 14 }}>Tổng số báo cáo: {data.length}</div>
+                //     </div>
+                // )}
             />
         </div>
     )

@@ -110,7 +110,11 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ open, onClose, reportDa
                 bordered
                 column={1}
                 size="small"
-                style={{ marginBottom: 16 }}
+                style={{
+                    marginBottom: 8,
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
+                    borderRadius: 8,
+                }}
                 styles={{
                     label: { width: 130, fontWeight: 500 },
                 }}
@@ -155,7 +159,11 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ open, onClose, reportDa
             </Descriptions>
 
             <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>
+                <label style={{
+                    display: 'block',
+                    marginBottom: 8,
+                    fontWeight: 500
+                }}>
                     Phản hồi
                 </label>
                 <TextArea
