@@ -1,5 +1,5 @@
-import React from 'react'
-import { Table, Tag, DatePicker } from 'antd'
+import React, { useState } from 'react'
+import { Table, Tag, DatePicker, Button } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 
 const { RangePicker } = DatePicker;
@@ -17,6 +17,26 @@ interface ReportData {
 }
 
 const AttendanceReport: React.FC = () => {
+    const [loadings, setLoadings] = useState<boolean[]>([]);
+
+    const enterLoading = (index: number) => {
+        console.log('Start loading:', index);
+    
+        setLoadings((prevLoadings) => {
+          const newLoadings = [...prevLoadings];
+          newLoadings[index] = true;
+          return newLoadings;
+        });
+    
+        setTimeout(() => {
+          setLoadings((prevLoadings) => {
+            const newLoadings = [...prevLoadings];
+            newLoadings[index] = false;
+            return newLoadings;
+          });
+        }, 3000);
+      };
+      
     // Mock data
     const data: ReportData[] = [
         {
@@ -163,7 +183,7 @@ const AttendanceReport: React.FC = () => {
             title: 'Tạo lúc',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            width: 150,
+            width: 155,
             sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         },
         {
@@ -250,6 +270,9 @@ const AttendanceReport: React.FC = () => {
                                 style={{ width: 230 }}
                                 placeholder={['Từ ngày', 'Đến ngày']}
                             />
+                            <Button type="primary" loading={loadings[0]} onClick={() => enterLoading(0)}>
+                                Làm mới
+                            </Button>
                         </div>
                     </div>
                 )}

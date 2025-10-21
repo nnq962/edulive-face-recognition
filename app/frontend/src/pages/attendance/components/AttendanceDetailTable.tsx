@@ -220,6 +220,25 @@ const AttendanceDetailTable: React.FC = () => {
     const [modalOpen, setModalOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null)
 
+    const [loadings, setLoadings] = useState<boolean[]>([]);
+    const enterLoading = (index: number) => {
+        console.log('Start loading:', index);
+
+        setLoadings((prevLoadings) => {
+            const newLoadings = [...prevLoadings];
+            newLoadings[index] = true;
+            return newLoadings;
+        });
+
+        setTimeout(() => {
+            setLoadings((prevLoadings) => {
+                const newLoadings = [...prevLoadings];
+                newLoadings[index] = false;
+                return newLoadings;
+            });
+        }, 3000);
+    };
+
     const tableData = useMemo(
         () => buildAttendanceData(selectedMonth),
         [selectedMonth],
@@ -296,8 +315,7 @@ const AttendanceDetailTable: React.FC = () => {
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 whiteSpace: 'nowrap',
-                                flexShrink: 0,
-                                marginRight: 8,
+                                marginRight: '8px'    // 👈 Đổi thành string
                             }}
                         >
                             Dữ liệu chấm công
@@ -309,15 +327,17 @@ const AttendanceDetailTable: React.FC = () => {
                                 display: 'flex',
                                 flexWrap: 'wrap',    // 👈 Cho phép 2 nút này tự xuống dòng nếu hẹp
                                 gap: 8,
-                                minWidth: 230 + 100 + 16, // RangePicker (230) + Button (100) + gap (~16)
-                                flexShrink: 0,
+                                // 👈 BỎ minWidth và flexShrink: 0 đi để cho phép wrap
                             }}
                         >
                             <RangePicker
                                 allowClear={false}
-                                style={{ width: 230 }}
+                                style={{ width: 230, minWidth: 200 }}
                                 placeholder={['Từ ngày', 'Đến ngày']}
                             />
+                            <Button type="primary" loading={loadings[0]} onClick={() => enterLoading(0)}>
+                                Làm mới
+                            </Button>
                             <Button
                                 type="primary"
                                 onClick={() => console.log('Export clicked')}

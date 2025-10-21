@@ -1,9 +1,19 @@
-import React from 'react'
-import { Table, Tag } from 'antd'
+import React, { useState, useRef } from 'react'
+import { Table, Tag, DatePicker, Input, Button, Space } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import type { FilterDropdownProps } from 'antd/es/table/interface'
+import { SearchOutlined } from '@ant-design/icons'
+import type { InputRef } from 'antd'
+import Highlighter from 'react-highlight-words'
+import ApprovalsModal from './ApprovalsModal'
+
+const { RangePicker } = DatePicker;
+
+
 
 interface ReportData {
     key: string
+    employeeName: string
     date: string
     reportType: string
     subType?: string
@@ -15,10 +25,120 @@ interface ReportData {
 }
 
 const Approvals: React.FC = () => {
+    const [searchText, setSearchText] = useState('')
+    const [searchedColumn, setSearchedColumn] = useState('')
+    const searchInput = useRef<InputRef>(null)
+    const [modalOpen, setModalOpen] = useState(false)
+    const [selectedReport, setSelectedReport] = useState<ReportData | null>(null)
+
+    const [loadings, setLoadings] = useState<boolean[]>([]);
+
+    const enterLoading = (index: number) => {
+        console.log('Start loading:', index);
+
+        setLoadings((prevLoadings) => {
+            const newLoadings = [...prevLoadings];
+            newLoadings[index] = true;
+            return newLoadings;
+        });
+
+        setTimeout(() => {
+            setLoadings((prevLoadings) => {
+                const newLoadings = [...prevLoadings];
+                newLoadings[index] = false;
+                return newLoadings;
+            });
+        }, 3000);
+    };
+
+    const handleSearch = (
+        selectedKeys: string[],
+        confirm: FilterDropdownProps['confirm'],
+        dataIndex: string,
+    ) => {
+        confirm()
+        setSearchText(selectedKeys[0])
+        setSearchedColumn(dataIndex)
+    }
+
+    const handleReset = (clearFilters: () => void) => {
+        clearFilters()
+        setSearchText('')
+    }
+
+    const getColumnSearchProps = (dataIndex: keyof ReportData) => ({
+        filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }: FilterDropdownProps) => (
+            <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+                <Input
+                    ref={searchInput}
+                    placeholder={`Tìm kiếm tên`}
+                    value={selectedKeys[0]}
+                    onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+                    onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+                    style={{ marginBottom: 8, display: 'block' }}
+                />
+                <Space>
+                    <Button
+                        type="primary"
+                        onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
+                        icon={<SearchOutlined />}
+                        size="small"
+                        style={{ width: 90 }}
+                    >
+                        Tìm
+                    </Button>
+                    <Button
+                        onClick={() => clearFilters && handleReset(clearFilters)}
+                        size="small"
+                        style={{ width: 90 }}
+                    >
+                        Xóa
+                    </Button>
+                    <Button
+                        type="link"
+                        size="small"
+                        onClick={() => {
+                            close()
+                        }}
+                    >
+                        Đóng
+                    </Button>
+                </Space>
+            </div>
+        ),
+        filterIcon: (filtered: boolean) => (
+            <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+        ),
+        onFilter: (value: any, record: ReportData) =>
+            (record[dataIndex] ?? '')
+                .toString()
+                .toLowerCase()
+                .includes((value as string).toLowerCase()),
+        filterDropdownProps: {
+            onOpenChange: (visible: boolean) => {
+                if (visible) {
+                    setTimeout(() => searchInput.current?.select(), 100)
+                }
+            },
+        },
+        render: (text: any) =>
+            searchedColumn === dataIndex ? (
+                <Highlighter
+                    highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+                    searchWords={[searchText]}
+                    autoEscape
+                    textToHighlight={text ? text.toString() : ''}
+                />
+            ) : (
+                text
+            ),
+    })
+
     // Mock data
     const data: ReportData[] = [
         {
             key: '1',
+            employeeName: 'Nguyễn Văn A',
             date: '2025-10-19',
             reportType: 'Xin phép',
             subType: 'Đi muộn',
@@ -30,6 +150,7 @@ const Approvals: React.FC = () => {
         },
         {
             key: '2',
+            employeeName: 'Trần Thị B',
             date: '2025-10-19',
             reportType: 'Máy lỗi',
             subType: 'Không nhận diện',
@@ -41,6 +162,7 @@ const Approvals: React.FC = () => {
         },
         {
             key: '3',
+            employeeName: 'Lê Văn C',
             date: '2025-10-18',
             reportType: 'Feedback',
             subType: undefined,
@@ -52,6 +174,7 @@ const Approvals: React.FC = () => {
         },
         {
             key: '4',
+            employeeName: 'Phạm Thị D',
             date: '2025-10-18',
             reportType: 'Xin phép',
             subType: 'Nghỉ sáng',
@@ -63,6 +186,7 @@ const Approvals: React.FC = () => {
         },
         {
             key: '5',
+            employeeName: 'Hoàng Văn E',
             date: '2025-10-17',
             reportType: 'Máy lỗi',
             subType: 'Không hoạt động',
@@ -74,6 +198,7 @@ const Approvals: React.FC = () => {
         },
         {
             key: '6',
+            employeeName: 'Võ Thị F',
             date: '2025-10-17',
             reportType: 'Xin phép',
             subType: 'Cả ngày',
@@ -124,13 +249,30 @@ const Approvals: React.FC = () => {
         }
     }
 
+    const handleRowClick = (record: ReportData) => {
+        setSelectedReport(record)
+        setModalOpen(true)
+    }
+
+    const handleCloseModal = () => {
+        setModalOpen(false)
+        setSelectedReport(null)
+    }
+
     const columns: ColumnsType<ReportData> = [
+        {
+            title: 'Tên nhân viên',
+            dataIndex: 'employeeName',
+            key: 'employeeName',
+            width: 150,
+            fixed: 'left',
+            ...getColumnSearchProps('employeeName'),
+        },
         {
             title: 'Ngày',
             dataIndex: 'date',
             key: 'date',
             width: 115,
-            fixed: 'left',
             sorter: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
         },
         {
@@ -161,7 +303,7 @@ const Approvals: React.FC = () => {
             title: 'Tạo lúc',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            width: 150,
+            width: 155,
             sorter: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         },
         {
@@ -200,25 +342,76 @@ const Approvals: React.FC = () => {
     ]
 
     return (
-        <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden', marginBottom: 0, marginTop: 8 }}>
-            <Table
-                columns={columns}
-                dataSource={data}
-                pagination={false}
-                scroll={{ x: 1200 }}
-                bordered
-                title={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontWeight: 600, fontSize: 16 }}>Danh sách các báo cáo</div>
-                    </div>
-                )}
-                footer={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 14 }}>Tổng số báo cáo: {data.length}</div>
-                    </div>
-                )}
+        <>
+            <div style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03), 0 1px 6px -1px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)', borderRadius: 8, overflow: 'hidden', marginBottom: 0 }}>
+                <Table
+                    columns={columns}
+                    dataSource={data}
+                    pagination={false}
+                    scroll={{ x: 1200 }}
+                    bordered
+                    onRow={(record) => ({
+                        onClick: () => handleRowClick(record),
+                        style: { cursor: 'pointer' },
+                    })}
+                    title={() => (
+                        <div
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap', // 👈 Cho phép xuống dòng
+                                gap: 8,           // 👈 Giữ khoảng cách ngang
+                                rowGap: 8,        // 👈 Khoảng cách khi xuống hàng
+                            }}
+                        >
+                            {/* Tiêu đề */}
+                            <div
+                                style={{
+                                    fontWeight: 600,
+                                    fontSize: 16,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
+                                    marginRight: 8,
+                                }}
+                            >
+                                Danh sách các báo cáo
+                            </div>
+
+                            {/* Bộ lọc ngày */}
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <RangePicker
+                                    style={{ width: 230 }}
+                                    placeholder={['Từ ngày', 'Đến ngày']}
+                                />
+                                <Button type="primary" loading={loadings[0]} onClick={() => enterLoading(0)}>
+                                    Làm mới
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    footer={() => (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontSize: 14 }}>Tổng số báo cáo: {data.length}</div>
+                        </div>
+                    )}
+                />
+            </div>
+            <ApprovalsModal
+                open={modalOpen}
+                onClose={handleCloseModal}
+                reportData={selectedReport}
             />
-        </div>
+        </>
     )
 }
 
