@@ -6,6 +6,7 @@ import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
 import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import EmployeeManagementDetailModal from './EmployeeManagementDetailModal'
+import EmployeeManagementAddUserModal from './EmployeeManagementAddUserModal'
 
 interface EmployeeData {
     key: string
@@ -23,6 +24,7 @@ const EmployeeManagement: React.FC = () => {
     const [searchedColumn, setSearchedColumn] = useState('')
     const searchInput = useRef<InputRef>(null)
     const [modalOpen, setModalOpen] = useState(false)
+    const [addModalOpen, setAddModalOpen] = useState(false)
     const [selectedEmployee, setSelectedEmployee] = useState<EmployeeData | null>(null)
     const [employeeList, setEmployeeList] = useState<EmployeeData[]>([])
 
@@ -127,6 +129,15 @@ const EmployeeManagement: React.FC = () => {
 
     const handleDeleteEmployee = (key: string) => {
         setEmployeeList(prevList => prevList.filter(emp => emp.key !== key))
+    }
+
+    const handleAddEmployee = (newEmployee: Omit<EmployeeData, 'key'>) => {
+        const newKey = (employeeList.length + 1).toString()
+        const employeeWithKey: EmployeeData = {
+            ...newEmployee,
+            key: newKey,
+        }
+        setEmployeeList(prevList => [employeeWithKey, ...prevList])
     }
 
     // Mock data
@@ -380,7 +391,7 @@ const EmployeeManagement: React.FC = () => {
                             <Button
                                 type="primary"
                                 icon={<PlusOutlined />}
-                                onClick={() => console.log('Thêm nhân viên')}
+                                onClick={() => setAddModalOpen(true)}
                             >
                                 Thêm nhân viên
                             </Button>
@@ -394,6 +405,11 @@ const EmployeeManagement: React.FC = () => {
                 employeeData={selectedEmployee}
                 onUpdate={handleUpdateEmployee}
                 onDelete={handleDeleteEmployee}
+            />
+            <EmployeeManagementAddUserModal
+                open={addModalOpen}
+                onClose={() => setAddModalOpen(false)}
+                onAdd={handleAddEmployee}
             />
         </div>
     )

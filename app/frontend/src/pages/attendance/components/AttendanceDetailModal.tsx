@@ -183,15 +183,15 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
             open={open}
             onCancel={onClose}
             footer={null}
-            width={800}
-            centered
-            styles={{
-                body: {
-                    maxHeight: 'calc(100vh - 16px - 55px - 24px)',
-                    overflowY: 'auto',
-                    padding: '16px', // Thêm padding để shadow không bị cắt
-                }
+            width={{
+                xs: '90%',
+                sm: '80%',
+                md: '70%',
+                lg: '60%',
+                xl: '50%',
+                xxl: '40%',
             }}
+            centered
         >
             <Card
                 title="Thông tin chấm công"
@@ -237,7 +237,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
             >
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
                     gap: 16
                 }}>
                     {/* Check In */}
@@ -264,7 +264,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         }}>
                         </div>
                         <Image
-                            width={300}
+                            width={270}
                             height={200}
                             src="https://zos.alipayobjects.com/rmsportal/jkjgkEfvpUPVyRjUImniVslZfWPnJuuZ.png"
                             alt="Check in"
@@ -313,7 +313,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         }}>
                         </div>
                         <Image
-                            width={300}
+                            width={270}
                             height={200}
                             src="https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg"
                             alt="Check out"
