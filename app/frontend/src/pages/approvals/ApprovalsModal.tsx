@@ -106,12 +106,14 @@ const ApprovalsModal: React.FC<ApprovalsModalProps> = ({ open, onClose, reportDa
                 xxl: '40%',
             }}
         >
-            <Descriptions 
-                bordered 
-                column={1} 
-                size="small" 
+            <Descriptions
+                bordered
+                column={1}
+                size="small"
                 style={{ marginBottom: 16 }}
-                labelStyle={{ width: '130px', fontWeight: 500 }}
+                styles={{
+                    label: { width: 130, fontWeight: 500 },
+                }}
             >
                 <Descriptions.Item label="Tên nhân viên">
                     <strong>{reportData.employeeName}</strong>

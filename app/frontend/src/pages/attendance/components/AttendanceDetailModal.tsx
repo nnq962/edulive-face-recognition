@@ -205,8 +205,10 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                     bordered
                     column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2, xxl: 2 }}
                     size="small"
-                    labelStyle={{ width: '25%' }}
-                    contentStyle={{ width: '25%' }}
+                    styles={{
+                        label: { width: '25%' },
+                        content: { width: '25%' },
+                    }}
                 >
                     <Descriptions.Item label="Giờ vào" span={1}>
                         {record.checkIn !== '-' ? record.checkIn : <span style={{ color: '#999' }}>Chưa chấm</span>}
