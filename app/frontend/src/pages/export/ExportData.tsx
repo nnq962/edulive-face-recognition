@@ -363,10 +363,14 @@ const ExportData: React.FC = () => {
             }}>
               Dữ liệu xuất báo cáo
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap'
+            }}>
               <RangePicker
                 allowClear={false}
-                style={{ width: 230 }}
+                style={{ width: 230, minWidth: 200 }}
                 placeholder={['Từ ngày', 'Đến ngày']}
               />
               <Button type="primary" loading={loadings[0]} onClick={() => enterLoading(0)}>

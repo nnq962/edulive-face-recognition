@@ -9,6 +9,8 @@ import AttendanceDetailModal from './AttendanceDetailModal'
 
 dayjs.extend(utc)
 
+const { RangePicker } = DatePicker;
+
 const TAGS = [
     'Đúng giờ',
     'Đi muộn',
@@ -277,31 +279,49 @@ const AttendanceDetailTable: React.FC = () => {
                     }
                 }}
                 title={() => (
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <div style={{
-                            fontWeight: 600,
-                            fontSize: 16,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            marginRight: '8px'
-                        }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',       // 👈 Cho phép xuống dòng
+                            gap: 8,                 // 👈 Giữ khoảng cách tối thiểu 8px
+                            rowGap: 8,              // 👈 Khi xuống hàng, khoảng cách dọc là 8px
+                        }}
+                    >
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                fontSize: 16,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                marginRight: 8,
+                            }}
+                        >
                             Dữ liệu chấm công
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                            <DatePicker
-                                picker="month"
-                                value={selectedMonth}
-                                onChange={handleMonthChange}
-                                format="YYYY-MM"
+
+                        {/* Nhóm nút RangePicker + Export */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',    // 👈 Cho phép 2 nút này tự xuống dòng nếu hẹp
+                                gap: 8,
+                                minWidth: 230 + 100 + 16, // RangePicker (230) + Button (100) + gap (~16)
+                                flexShrink: 0,
+                            }}
+                        >
+                            <RangePicker
                                 allowClear={false}
-                                style={{ width: 102 }}
+                                style={{ width: 230 }}
+                                placeholder={['Từ ngày', 'Đến ngày']}
                             />
-                            <Button type="primary" onClick={() => console.log('Export clicked')}>
+                            <Button
+                                type="primary"
+                                onClick={() => console.log('Export clicked')}
+                            >
                                 Xuất dữ liệu
                             </Button>
                         </div>

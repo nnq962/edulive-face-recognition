@@ -1,6 +1,8 @@
 import React from 'react'
-import { Table, Tag } from 'antd'
+import { Table, Tag, DatePicker } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+
+const { RangePicker } = DatePicker;
 
 interface ReportData {
     key: string
@@ -208,8 +210,47 @@ const AttendanceReport: React.FC = () => {
                 scroll={{ x: 1200 }}
                 bordered
                 title={() => (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontWeight: 600, fontSize: 16 }}>Báo cáo của bạn</div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap', // 👈 Cho phép xuống dòng
+                            gap: 8,           // 👈 Giữ khoảng cách ngang
+                            rowGap: 8,        // 👈 Khoảng cách khi xuống hàng
+                        }}
+                    >
+                        {/* Tiêu đề */}
+                        <div
+                            style={{
+                                fontWeight: 600,
+                                fontSize: 16,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                marginRight: 8,
+                            }}
+                        >
+                            Báo cáo của bạn
+                        </div>
+
+                        {/* Bộ lọc ngày */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 8,
+                                flexShrink: 0,
+                                minWidth: 230, // để RangePicker không bị co
+                            }}
+                        >
+                            <RangePicker
+                                allowClear={false}
+                                style={{ width: 230 }}
+                                placeholder={['Từ ngày', 'Đến ngày']}
+                            />
+                        </div>
                     </div>
                 )}
                 footer={() => (
