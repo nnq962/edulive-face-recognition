@@ -71,7 +71,7 @@ const Vip: React.FC = () => {
             requests: '∞',
             description: 'Cho ai muốn tự do tuyệt đối',
             features: [
-                'request không giới hạn',
+                'Request không giới hạn',
                 'VIP support 24/7',
                 'Báo cáo real-time',
                 'Lưu trữ vĩnh viễn',
