@@ -7,6 +7,7 @@ import Settings from './pages/settings/Settings'
 import ExportData from './pages/export/ExportData'
 import EmployeeManagement from './pages/employees/EmployeeManagement'
 import Approvals from './pages/approvals/Approvals'
+import Vip from './pages/vip/Vip'
 // Lazy-load các trang con
 
 
@@ -24,6 +25,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={null}>
         <Login />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/vip',
+    element: (
+      <Suspense fallback={null}>
+        <Vip />
       </Suspense>
     ),
   },
