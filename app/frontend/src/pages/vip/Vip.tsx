@@ -338,6 +338,8 @@ const Vip: React.FC = () => {
                 {/* Trial Section */}
                 <div style={{
                     padding: '48px 0',
+                    maxWidth: '1400px',
+                    margin: '0 auto',
                 }}>
                     <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                         <h2 style={{
