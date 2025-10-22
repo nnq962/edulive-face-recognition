@@ -28,8 +28,8 @@ const Vip: React.FC = () => {
         {
             id: 'pro',
             name: 'Pro',
-            price: '99,000đ',
-            originalPrice: '199,000đ',
+            price: '99.000đ',
+            originalPrice: '199.000đ',
             requests: 100,
             description: 'Cho người thỉnh thoảng đi muộn',
             features: [
@@ -46,8 +46,8 @@ const Vip: React.FC = () => {
         {
             id: 'premium',
             name: 'Premium',
-            price: '299,000đ',
-            originalPrice: '599,000đ',
+            price: '299.000đ',
+            originalPrice: '599.000đ',
             requests: 400,
             description: 'Cho người hay đi muộn',
             features: [
@@ -66,8 +66,8 @@ const Vip: React.FC = () => {
         {
             id: 'lifetime',
             name: 'Lifetime',
-            price: '999,000đ',
-            originalPrice: '1,999,000đ',
+            price: '999.000đ',
+            originalPrice: '1.999.000đ',
             requests: '∞',
             description: 'Cho ai muốn tự do tuyệt đối',
             features: [
