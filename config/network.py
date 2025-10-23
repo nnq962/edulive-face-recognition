@@ -1,4 +1,4 @@
-from .base import BaseConfig
+from config.base import BaseConfig
 
 class NetworkConfig(BaseConfig):
     HOST: str = "0.0.0.0"

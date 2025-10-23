@@ -1,4 +1,4 @@
-from .base import BaseConfig
+from config.base import BaseConfig
 
 class FeatureConfig(BaseConfig):
     # Insightface config

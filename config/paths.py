@@ -4,15 +4,16 @@ Module này cấu hình các đường dẫn, tự động tải xuống các mo
 
 from pathlib import Path
 import gdown
-from .base import BaseConfig
-from utils.logger import LOGGER
+from config.base import BaseConfig
+from utils import LOGGER
 
 
 class PathConfig(BaseConfig):
     # Base paths
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent
-    MODEL_DIR: Path = BASE_DIR / "models"
-    DATA_DIR: Path = BASE_DIR / "data"
+    ROOT_DIR: Path = Path(__file__).resolve().parent.parent
+    AI_SERVICE_DIR: Path = ROOT_DIR / "ai_service"
+    MODEL_DIR: Path = AI_SERVICE_DIR / "ai_models"
+    DATA_DIR: Path = AI_SERVICE_DIR / "data"
     FAISS_DIR: Path = DATA_DIR / "faiss"
     FAISS_TEST_DIR: Path = DATA_DIR / "faiss" / "test"
     FAISS_PRODUCTION_DIR: Path = DATA_DIR / "faiss" / "production"
