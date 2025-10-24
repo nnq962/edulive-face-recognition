@@ -1,11 +1,13 @@
 # backend/utils/jwt.py
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from config.base import BaseConfig
 from utils import LOGGER
-
+from utils.time_helper import utc_now
+from fastapi import HTTPException, status
+from jose import ExpiredSignatureError
 
 class JWTConfig(BaseConfig):
     """
@@ -14,6 +16,8 @@ class JWTConfig(BaseConfig):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30
+    JWT_ACCESS_TOKEN_EXPIRE_SECONDS: int = JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 
 # Load config
@@ -33,13 +37,14 @@ def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None)
     """
     try:
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = utc_now() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=jwt_config.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = utc_now() + timedelta(minutes=jwt_config.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
         
         # Payload chỉ chứa user_id và expiration
         to_encode = {
             "sub": user_id,  # Subject (user_id)
+            "type": "access",
             "exp": expire    # Expiration time
         }
         
@@ -56,8 +61,40 @@ def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None)
         LOGGER.error(f"Error creating access token: {e}")
         raise
 
+def create_refresh_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Tạo JWT refresh token
+    
+    Args:
+        user_id: User ID
+        expires_delta: Thời gian hết hạn (optional)
+    """
+    try:
+        if expires_delta:
+            expire = utc_now() + expires_delta
+        else:
+            expire = utc_now() + timedelta(minutes=jwt_config.JWT_REFRESH_TOKEN_EXPIRE_MINUTES)
+        
+        to_encode = {
+            "sub": user_id,  # Subject (user_id)
+            "type": "refresh",
+            "exp": expire    # Expiration time
+        }
+        
+        encoded_jwt = jwt.encode(
+            to_encode,
+            jwt_config.JWT_SECRET_KEY,
+            algorithm=jwt_config.JWT_ALGORITHM
+        )
+        
+        LOGGER.debug(f"Created refresh token for user: {user_id}")
+        return encoded_jwt
+    except Exception as e:
+        LOGGER.error(f"Error creating refresh token: {e}")
+        raise
 
-def verify_token(token: str) -> Optional[str]:
+
+def verify_token(token: str) -> Optional[dict]:
     """
     Verify và decode JWT token
     
@@ -65,7 +102,7 @@ def verify_token(token: str) -> Optional[str]:
         token: JWT token
     
     Returns:
-        Optional[str]: User ID nếu valid, None nếu invalid
+        Optional[dict]: Payload nếu hợp lệ, None nếu invalid
     """
     try:
         payload = jwt.decode(
@@ -73,15 +110,14 @@ def verify_token(token: str) -> Optional[str]:
             jwt_config.JWT_SECRET_KEY,
             algorithms=[jwt_config.JWT_ALGORITHM]
         )
-        
-        user_id: str = payload.get("sub")
-        
-        if user_id is None:
-            LOGGER.warning("Token không có user_id")
+
+        # Có thể check thêm trường cần thiết
+        if "sub" not in payload:
+            LOGGER.warning("Token không có 'sub'")
             return None
-        
-        return user_id
-        
+
+        return payload  # ✅ trả nguyên payload dict
+
     except JWTError as e:
         LOGGER.warning(f"Invalid token: {e}")
         return None
@@ -90,24 +126,45 @@ def verify_token(token: str) -> Optional[str]:
         return None
 
 
-def decode_token(token: str) -> Optional[dict]:
+def decode_token(token: str) -> dict:
     """
-    Decode token và trả về payload (không verify)
-    
+    Decode & verify JWT token
+
     Args:
-        token: JWT token
-    
+        token (str): JWT token
+
     Returns:
-        Optional[dict]: Payload nếu decode được, None nếu lỗi
+        dict: Payload nếu hợp lệ
+
+    Raises:
+        HTTPException: Nếu token không hợp lệ hoặc hết hạn
     """
     try:
         payload = jwt.decode(
             token,
             jwt_config.JWT_SECRET_KEY,
             algorithms=[jwt_config.JWT_ALGORITHM],
-            options={"verify_signature": False}
+            options={"verify_signature": True},  # ✅ phải verify chữ ký
         )
         return payload
+
+    except ExpiredSignatureError:
+        LOGGER.error("Token has expired.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+        )
+
+    except JWTError as e:
+        LOGGER.error(f"Invalid token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
     except Exception as e:
-        LOGGER.error(f"Error decoding token: {e}")
-        return None
+        LOGGER.error(f"Unexpected error decoding token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error while decoding token",
+        )

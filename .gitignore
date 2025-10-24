@@ -80,5 +80,5 @@ dist/
 
 # Folder
 data/
-ai-models/
+ai_models/
 runs/

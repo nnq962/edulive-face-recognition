@@ -7,6 +7,7 @@ from bson import ObjectId
 from config.database import get_database
 from backend.utils.jwt import verify_token
 from utils import LOGGER
+from utils.common import normalize_mongo_doc
 
 
 # HTTPBearer để lấy token từ header Authorization: Bearer <token>
@@ -25,60 +26,38 @@ async def get_db() -> AsyncIOMotorDatabase:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ) -> dict:
     """
-    Dependency: Lấy user hiện tại từ JWT token
-    
-    Args:
-        credentials: Token từ header Authorization
-        db: Database instance
-    
-    Returns:
-        dict: User document
-    
-    Raises:
-        HTTPException: 401 nếu token invalid hoặc user không tồn tại
+    Dependency: Lấy user hiện tại từ JWT access token
     """
-    # Lấy token
     token = credentials.credentials
-    
-    # Verify token
-    user_id = verify_token(token)
-    
-    if user_id is None:
-        LOGGER.warning("Invalid or expired token")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    # Query user từ database
+
     try:
+        # Decode & verify JWT
+        payload = verify_token(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        if payload.get("type") != "access":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+
         users_collection = db["users"]
         user = await users_collection.find_one({"_id": ObjectId(user_id)})
-        
-        if user is None:
-            LOGGER.warning(f"User not found: {user_id}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unauthorized",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        
-        # Convert ObjectId to string
-        user["id"] = str(user["_id"])
-        
-        return user
-        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+
+        return normalize_mongo_doc(user)
+
+    except HTTPException:
+        raise
     except Exception as e:
         LOGGER.error(f"Error getting current user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 async def get_current_active_user(
@@ -107,25 +86,38 @@ async def get_current_active_user(
 
 
 async def require_admin(
-    current_user: dict = Depends(get_current_active_user)
+    current_user: dict = Depends(get_current_active_user),
 ) -> dict:
     """
-    Dependency: Kiểm tra user có phải admin không
-    
-    Args:
-        current_user: User từ get_current_active_user
-    
-    Returns:
-        dict: User document
-    
-    Raises:
-        HTTPException: 403 nếu user không phải admin
+    Chỉ cho phép admin hoặc super_admin truy cập.
     """
-    if not current_user.get("is_admin", False):
-        LOGGER.warning(f"Non-admin user tried to access admin endpoint: {current_user.get('username')}")
+    role = current_user.get("role")
+
+    if role not in ("admin", "super_admin"):
+        LOGGER.warning(
+            f"User '{current_user.get('username')}' tried to access admin route with role '{role}'"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden"
+            detail="Forbidden: Requires admin privileges",
         )
-    
+
+    return current_user
+
+
+async def require_super_admin(
+    current_user: dict = Depends(get_current_active_user),
+) -> dict:
+    """
+    Chỉ cho phép super_admin truy cập.
+    """
+    if current_user.get("role") != "super_admin":
+        LOGGER.warning(
+            f"User '{current_user.get('username')}' tried to access super-admin route with role '{current_user.get('role')}'"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Requires super_admin privileges",
+        )
+
     return current_user

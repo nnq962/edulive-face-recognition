@@ -7,6 +7,7 @@ from backend.utils.password import hash_password
 from utils import LOGGER
 import re
 from unidecode import unidecode
+from utils.common import normalize_mongo_doc
 
 
 USER_COLLECTION = "users"
@@ -166,3 +167,12 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
     except Exception as e:
         LOGGER.error(f"Error creating user: {e}")
         raise
+
+
+async def fetch_all_users(db: AsyncIOMotorDatabase) -> list[dict]:
+    users_collection = db["users"]
+    cursor = users_collection.find({})
+    users = await cursor.to_list(length=None)
+
+    # Normalize toàn bộ document
+    return [normalize_mongo_doc(u) for u in users]

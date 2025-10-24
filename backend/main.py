@@ -3,10 +3,11 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from config.database import connect_to_mongodb, close_mongodb_connection, create_indexes
-from backend.routes import user
+from backend.routes import user, auth
 from backend.schemas.common import ApiError
 from utils import LOGGER
 
@@ -39,6 +40,19 @@ app = FastAPI(
     swagger_ui_parameters={
         "tryItOutEnabled": True,  # ← Bật mặc định nút "Try it out"
     },
+)
+
+# =========================================================
+# CORS CONFIGURATION
+# =========================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép tất cả origins (dev mode)
+    # Trong production, nên chỉ định cụ thể: ["http://localhost:5173", "https://yourdomain.com"]
+    allow_credentials=True,
+    allow_methods=["*"],  # Cho phép tất cả HTTP methods (GET, POST, PUT, DELETE, OPTIONS...)
+    allow_headers=["*"],  # Cho phép tất cả headers
 )
 
 # =========================================================
@@ -93,6 +107,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(user.router)
+app.include_router(auth.router)
 
 
 @app.get("/")
