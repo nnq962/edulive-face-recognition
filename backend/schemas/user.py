@@ -37,3 +37,4 @@ class UserCreateResponse(BaseModel):
     position: str = Field(..., example="Developer")
     department: str = Field(..., example="AI Center")
     telegram_username: Optional[str] = Field(default=None, example="quyetnn")
+    is_active: bool = Field(..., example=True)

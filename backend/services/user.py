@@ -4,6 +4,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.schemas.user import UserCreate
 from backend.models.user import UserModel
 from backend.utils.password import hash_password
+from backend.utils.pagination import PaginationParams
+from backend.utils.filters import UserFilterParams
 from utils import LOGGER
 import re
 from unidecode import unidecode
@@ -170,9 +172,51 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
 
 
 async def fetch_all_users(db: AsyncIOMotorDatabase) -> list[dict]:
+    """Legacy function - Lấy tất cả users (không pagination)"""
     users_collection = db["users"]
     cursor = users_collection.find({})
     users = await cursor.to_list(length=None)
 
     # Normalize toàn bộ document
     return [normalize_mongo_doc(u) for u in users]
+
+
+async def fetch_users_with_pagination(
+    db: AsyncIOMotorDatabase,
+    pagination: PaginationParams,
+    filters: UserFilterParams
+) -> tuple[list[dict], int]:
+    """
+    Lấy danh sách users với pagination và filters
+    
+    Args:
+        db: Database instance
+        pagination: Pagination parameters
+        filters: Filter parameters
+    
+    Returns:
+        tuple: (list of users, total count)
+    """
+    users_collection = db[USER_COLLECTION]
+    
+    # Build query từ filters
+    query = filters.build_query()
+    
+    LOGGER.debug(f"Query: {query}")
+    LOGGER.debug(f"Pagination: page={pagination.page}, limit={pagination.limit}, sort={pagination.sort}, order={pagination.order}")
+    
+    # Get total count
+    total = await users_collection.count_documents(query)
+    
+    # Get users với pagination và sorting
+    cursor = users_collection.find(query).sort(
+        pagination.sort, 
+        pagination.sort_direction
+    ).skip(pagination.skip).limit(pagination.limit)
+    
+    users = await cursor.to_list(length=None)
+    
+    # Normalize documents
+    normalized_users = [normalize_mongo_doc(u) for u in users]
+    
+    return normalized_users, total

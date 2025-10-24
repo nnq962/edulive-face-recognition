@@ -8,13 +8,34 @@ import ExportData from './pages/export/ExportData'
 import EmployeeManagement from './pages/employees/EmployeeManagement'
 import Approvals from './pages/approvals/Approvals'
 import Vip from './pages/vip/Vip'
+import ProtectedRoute from './components/ProtectedRoute'
 // Lazy-load các trang con
 
 
 // Bảo vệ route — nếu chưa login thì về trang /login
+import { useAuth } from './contexts/AuthContext'
+import { Spin } from 'antd'
+
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const token = localStorage.getItem('token')
-  if (!token) return <Navigate to="/login" replace />
+  const { user, loading } = useAuth()
+  
+  // Đang loading → hiển thị spinner
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <Spin size="large" />
+      </div>
+    )
+  }
+  
+  // Chưa login → redirect về login
+  if (!user) return <Navigate to="/login" replace />
+  
   return <>{children}</>
 }
 
@@ -49,41 +70,51 @@ export const router = createBrowserRouter([
       {
         path: 'attendance',
         element: (
-          <Suspense fallback={null}>
-            <AttendanceTracking />
-          </Suspense>
+          <ProtectedRoute allowedRoles={['user', 'admin', 'super_admin']}>
+            <Suspense fallback={null}>
+              <AttendanceTracking />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
       {
         path: 'employees',
         element: (
-          <Suspense fallback={null}>
-            <EmployeeManagement />
-          </Suspense>
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <Suspense fallback={null}>
+              <EmployeeManagement />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
       {
         path: 'settings',
         element: (
-          <Suspense fallback={null}>
-            <Settings />
-          </Suspense>
+          <ProtectedRoute allowedRoles={['user', 'admin', 'super_admin']}>
+            <Suspense fallback={null}>
+              <Settings />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
       {
         path: 'export',
         element: (
-          <Suspense fallback={null}>
-            <ExportData />
-          </Suspense>
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <Suspense fallback={null}>
+              <ExportData />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
       {
         path: 'approvals',
         element: (
-          <Suspense fallback={null}>
-            <Approvals />
-          </Suspense>
+          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+            <Suspense fallback={null}>
+              <Approvals />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
     ],

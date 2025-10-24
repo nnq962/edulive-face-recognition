@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Badge, Tabs, Tooltip } from 'antd';
+import { Layout, Badge, Tabs, Tooltip, message } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
     MenuOutlined,
@@ -11,23 +11,58 @@ import {
     ScheduleOutlined
 } from '@ant-design/icons';
 import LogoutIcon from '../assets/icons/logout.svg';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { Content } = Layout;
 
 // Map routes với icon và title
-const routeConfig: Record<string, { icon: React.ReactNode; title: string }> = {
-    '/attendance': { icon: <VideoCameraOutlined />, title: 'Chấm công' },
-    '/export': { icon: <DatabaseOutlined />, title: 'Dữ liệu' },
-    '/approvals': { icon: <CheckCircleOutlined />, title: 'Phê duyệt' },
-    '/employees': { icon: <UserOutlined />, title: 'Nhân sự' },
-    '/settings': { icon: <SettingOutlined />, title: 'Cài đặt' },
+const routeConfig: Record<string, { icon: React.ReactNode; title: string; allowedRoles: string[] }> = {
+    '/attendance': { 
+        icon: <VideoCameraOutlined />, 
+        title: 'Chấm công',
+        allowedRoles: ['user', 'admin', 'super_admin'] // Tất cả đều thấy
+    },
+    '/export': { 
+        icon: <DatabaseOutlined />, 
+        title: 'Dữ liệu',
+        allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
+    },
+    '/approvals': { 
+        icon: <CheckCircleOutlined />, 
+        title: 'Phê duyệt',
+        allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
+    },
+    '/employees': { 
+        icon: <UserOutlined />, 
+        title: 'Nhân sự',
+        allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
+    },
+    '/settings': { 
+        icon: <SettingOutlined />, 
+        title: 'Cài đặt',
+        allowedRoles: ['user', 'admin', 'super_admin'] // Tất cả đều thấy
+    },
 };
 
 const MainLayout: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const { user, setUser } = useAuth(); // Thêm setUser để reset user
     const currentPath = `/${location.pathname.split('/')[1] || 'attendance'}`;
-    const currentRoute = routeConfig[currentPath] || { icon: <VideoCameraOutlined />, title: 'Chấm công' };
+    const currentRoute = routeConfig[currentPath] || { icon: <VideoCameraOutlined />, title: 'Chấm công', allowedRoles: [] };
+    // Lọc menu theo role của user
+    const filteredRoutes = React.useMemo(() => {
+        if (!user) return {}; // Nếu chưa có user thì không hiển thị menu nào
+        
+        return Object.entries(routeConfig).reduce((acc, [path, config]) => {
+            // Kiểm tra xem role của user có trong allowedRoles không
+            if (config.allowedRoles.includes(user.role)) {
+                acc[path] = config;
+            }
+            return acc;
+        }, {} as typeof routeConfig);
+    }, [user]);
+
     const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
         const saved = localStorage.getItem('sidebarCollapsed');
         if (saved !== null) {
@@ -47,6 +82,21 @@ const MainLayout: React.FC = () => {
         isOnline: true, // true = online (xanh), false = offline (đỏ)
         lastUpdate: '14:30', // Thời gian từ API
     });
+
+    // Hàm xử lý logout
+    const handleLogout = () => {
+        // Bước 1: Xóa token khỏi localStorage
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        
+        // Bước 2: Reset user trong Context về null
+        setUser(null);
+        
+        // Bước 3: Redirect về trang login
+        navigate('/login', { replace: true });
+
+        message.success('Đăng xuất thành công');
+    };
 
     // Mock data
     const mockNotifications = [
@@ -131,7 +181,7 @@ const MainLayout: React.FC = () => {
 
                 {/* Sidebar Content */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-                    {Object.entries(routeConfig).map(([path, config]) => (
+                    {Object.entries(filteredRoutes).map(([path, config]) => (
                         <div
                             key={path}
                             onClick={() => {
@@ -332,7 +382,7 @@ const MainLayout: React.FC = () => {
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0, 0, 0, 0.06)'}
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                            onClick={() => console.log('Logout clicked')}
+                            onClick={handleLogout}
                         >
                             <img
                                 src={LogoutIcon}

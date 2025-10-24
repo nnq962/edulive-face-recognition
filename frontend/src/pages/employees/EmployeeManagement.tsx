@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Table, Tag, Button, Input, Space } from 'antd'
+import { Table, Tag, Button, Input, Space, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
 import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
@@ -7,6 +7,7 @@ import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import EmployeeManagementDetailModal from './EmployeeManagementDetailModal'
 import EmployeeManagementAddUserModal from './EmployeeManagementAddUserModal'
+import { employeesApi } from '@/api'
 
 interface EmployeeData {
     key: string
@@ -27,6 +28,14 @@ const EmployeeManagement: React.FC = () => {
     const [addModalOpen, setAddModalOpen] = useState(false)
     const [selectedEmployee, setSelectedEmployee] = useState<EmployeeData | null>(null)
     const [employeeList, setEmployeeList] = useState<EmployeeData[]>([])
+    const [loading, setLoading] = useState(false)
+    
+    // Pagination state
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 20, // Mặc định 20 items/page
+        total: 0,
+    })
 
     const handleSearch = (
         selectedKeys: string[],
@@ -140,94 +149,61 @@ const EmployeeManagement: React.FC = () => {
         setEmployeeList(prevList => [employeeWithKey, ...prevList])
     }
 
-    // Mock data
-    const initialData: EmployeeData[] = [
-        {
-            key: '1',
-            employeeName: 'Nguyễn Văn A',
-            email: 'nguyenvana@company.com',
-            role: 'Super Admin',
-            position: 'CTO',
-            department: 'Tầng 1',
-            telegram: '@nguyenvana',
-            status: 'active',
-        },
-        {
-            key: '2',
-            employeeName: 'Trần Thị B',
-            email: 'tranthib@company.com',
-            role: 'Admin',
-            position: 'Dev AI',
-            department: 'Tầng 2',
-            telegram: '@tph2104',
-            status: 'active',
-        },
-        {
-            key: '3',
-            employeeName: 'Lê Văn C',
-            email: 'levanc@company.com',
-            role: 'User',
-            position: 'Dev Frontend',
-            department: 'Tầng 2',
-            telegram: '@quyetnguyenngoc',
-            status: 'active',
-        },
-        {
-            key: '4',
-            employeeName: 'Nguyễn Trần Trung Trương',
-            email: 'phamthid@company.com',
-            role: 'User',
-            position: 'Dev Backend',
-            department: 'Tầng 2',
-            telegram: '@phamthid',
-            status: 'active',
-        },
-        {
-            key: '5',
-            employeeName: 'Hoàng Văn E',
-            email: 'hoangvane@company.com',
-            role: 'Admin',
-            position: 'Team Lead',
-            department: 'Tầng 3',
-            telegram: '@hoangvane',
-            status: 'active',
-        },
-        {
-            key: '6',
-            employeeName: 'Võ Thị F',
-            email: 'vothif@company.com',
-            role: 'User',
-            position: 'Dev Mobile',
-            department: 'Tầng 3',
-            telegram: '@vothif',
-            status: 'inactive',
-        },
-        {
-            key: '7',
-            employeeName: 'Đặng Văn G',
-            email: 'dangvang@company.com',
-            role: 'User',
-            position: 'QA Engineer',
-            department: 'Tầng 1',
-            telegram: '@dangvang',
-            status: 'active',
-        },
-        {
-            key: '8',
-            employeeName: 'Bùi Thị H',
-            email: 'buithih@company.com',
-            role: 'User',
-            position: 'UI/UX Designer',
-            department: 'Tầng 1',
-            telegram: '@buithih',
-            status: 'inactive',
-        },
-    ]
+    // Fetch users từ API với pagination
+    const fetchUsers = async (page: number = 1, pageSize: number = 20) => {
+        try {
+            setLoading(true)
+            const response = await employeesApi.getAllUsers({
+                page,
+                limit: pageSize,
+                sort: 'created_at',
+                order: 'desc',
+            })
+            
+            console.log('API Response:', response.data)
+            
+            // Backend trả về: { success: true, data: [...users], meta: {...pagination} }
+            const users = response.data.data
+            const meta = response.data.meta
+            
+            // Map data từ backend sang format của frontend
+            const formattedUsers: EmployeeData[] = users.map((user: any) => ({
+                key: user.id,
+                employeeName: user.full_name || user.username,
+                email: user.email,
+                role: user.role === 'super_admin' ? 'Super Admin' : 
+                      user.role === 'admin' ? 'Admin' : 'User',
+                position: user.position || '',
+                department: user.department || '',
+                telegram: user.telegram_username || '',
+                status: user.is_active ? 'active' : 'inactive',
+            }))
+            
+            setEmployeeList(formattedUsers)
+            
+            // Cập nhật pagination state
+            setPagination({
+                current: meta.current_page,
+                pageSize: meta.per_page,
+                total: meta.total,
+            })
+        } catch (error: any) {
+            console.error('Lỗi khi tải danh sách nhân viên:', error)
+            message.error(error.response?.data?.message || 'Lỗi khi tải danh sách nhân viên')
+        } finally {
+            setLoading(false)
+        }
+    }
 
-    // Initialize employee list
+    // Initialize - Lấy trang 1 với 20 items
     React.useEffect(() => {
-        setEmployeeList(initialData)
+        fetchUsers(1, 20)
     }, [])
+
+    // Handle khi user thay đổi trang hoặc pageSize
+    const handleTableChange = (newPagination: any) => {
+        fetchUsers(newPagination.current, newPagination.pageSize)
+    }
 
     const getRoleColor = (role: string) => {
         switch (role) {
@@ -320,9 +296,13 @@ const EmployeeManagement: React.FC = () => {
             key: 'telegram',
             width: 140,
             render: (telegram: string) => (
-                <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                    {telegram}
-                </a>
+                telegram !== 'N/A' ? (
+                    <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                        {telegram}
+                    </a>
+                ) : (
+                    <span style={{ color: '#999' }}>N/A</span>
+                )
             ),
         },
         {
@@ -350,19 +330,21 @@ const EmployeeManagement: React.FC = () => {
             <Table
                 columns={columns}
                 dataSource={employeeList}
+                loading={loading}
                 onRow={(record) => ({
                     onClick: () => handleRowClick(record),
                     style: { cursor: 'pointer' },
                 })}
                 pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true, // Hiển thị dropdown chọn số item/page
-                    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`, // Hiển thị tổng số
-                    pageSizeOptions: ['10', '20', '50', '100'], // Các option cho dropdown
+                    ...pagination,
+                    showSizeChanger: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`,
+                    pageSizeOptions: ['10', '20', '50', '100'],
                     style: {
                         paddingRight: '8px',
                     },
                 }}
+                onChange={handleTableChange}
                 scroll={{ x: 1200 }}
                 bordered
                 title={() => (

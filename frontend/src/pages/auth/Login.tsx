@@ -2,23 +2,52 @@ import React, { useState } from 'react';
 import { Card, Form, Input, Button, message, Typography, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { authApi } from '@/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { Title } = Typography;
 
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { setUser } = useAuth(); // Lấy setUser từ Context
 
-  const onFinish = async (values: { username: string; password: string }) => {
+  const onFinish = async (values: { username: string; password: string; remember?: boolean }) => {
     try {
       setLoading(true);
-      // fake auth
-      if (!values.username || !values.password) throw new Error('invalid');
-      localStorage.setItem('token', 'demo-token');
-      message.success('Đăng nhập thành công');
-      navigate('/', { replace: true });
-    } catch {
-      message.error('Sai tài khoản/mật khẩu');
+      
+      // Bước 1: Login
+      const res = await authApi.login({
+        username_or_email: values.username,
+        password: values.password,
+        remember_me: values.remember || false,
+      });
+
+      const data = res.data.data;
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+
+      // Bước 2: Fetch user info ngay sau khi login thành công
+      try {
+        const userResponse = await authApi.getMe();
+        const userData = userResponse.data.data;
+        
+        // Lưu user vào Context
+        setUser({
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          full_name: userData.full_name,
+        });
+      } catch (userError) {
+        console.error('Lỗi khi lấy thông tin user:', userError);
+      }
+
+      message.success("Đăng nhập thành công");
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      message.error(err.response?.data?.message || "Sai tài khoản/email hoặc mật khẩu");
     } finally {
       setLoading(false);
     }
@@ -68,7 +97,7 @@ const Login: React.FC = () => {
           >
             <Input
               prefix={<UserOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
-              placeholder="Tài khoản"
+              placeholder="Tài khoản hoặc email"
               size="large"
             />
           </Form.Item>
