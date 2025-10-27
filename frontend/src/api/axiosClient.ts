@@ -36,11 +36,15 @@ axiosClient.interceptors.request.use((config) => {
 // Response Interceptor - Xử lý tự động refresh token
 axiosClient.interceptors.response.use(
     (response) => {
-        // Nếu response thành công → trả về bình thường
         return response;
     },
     async (error) => {
         const originalRequest = error.config;
+
+        // ✅ QUAN TRỌNG: Không xử lý refresh token cho request login
+        if (originalRequest.url?.includes('/auth/login')) {
+            return Promise.reject(error);
+        }
 
         // Kiểm tra nếu lỗi 401 và chưa retry
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -68,7 +72,10 @@ axiosClient.interceptors.response.use(
                 isRefreshing = false;
                 localStorage.removeItem("access_token");
                 localStorage.removeItem("refresh_token");
-                window.location.href = "/login";
+                // ✅ Chỉ redirect nếu KHÔNG phải đang ở trang login
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = "/login";
+                }
                 return Promise.reject(error);
             }
 
@@ -106,7 +113,10 @@ axiosClient.interceptors.response.use(
                 isRefreshing = false;
                 localStorage.removeItem("access_token");
                 localStorage.removeItem("refresh_token");
-                window.location.href = "/login";
+                // ✅ Chỉ redirect nếu KHÔNG phải đang ở trang login
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = "/login";
+                }
                 return Promise.reject(refreshError);
             }
         }

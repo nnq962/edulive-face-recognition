@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Form, Input, Select, Button, Space, message } from 'antd';
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons';
 import DepartmentModal from './DepartmentModal';
+import { useDepartments } from '@/contexts/DepartmentsContext';
 
 const { Option } = Select;
 
@@ -29,10 +30,10 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
 }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    
+
     // Department management states
     const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
-    const [departments, setDepartments] = useState<string[]>(['Tầng 1', 'Tầng 2', 'Tầng 3']);
+    const { departments, loading: departmentsLoading, reload } = useDepartments();
 
     const handleAdd = async () => {
         try {
@@ -145,9 +146,10 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
                             <Select
                                 placeholder="Chọn phòng ban"
                                 style={{ width: '100%' }}
+                                loading={departmentsLoading}
                             >
                                 {departments.map(dept => (
-                                    <Option key={dept} value={dept}>{dept}</Option>
+                                    <Option key={dept.id} value={dept.name}>{dept.name}</Option>
                                 ))}
                             </Select>
                             <Button
@@ -199,12 +201,6 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
             <DepartmentModal
                 open={departmentModalOpen}
                 onClose={() => setDepartmentModalOpen(false)}
-                departments={departments}
-                onUpdate={(newDepartments) => {
-                    setDepartments(newDepartments);
-                    // TODO: Gọi API để lưu vào database
-                    console.log('Updated departments:', newDepartments);
-                }}
             />
         </>
     );

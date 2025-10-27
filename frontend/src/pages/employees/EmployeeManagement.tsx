@@ -137,7 +137,17 @@ const EmployeeManagement: React.FC = () => {
     }
 
     const handleDeleteEmployee = (key: string) => {
+        // Xóa khỏi state local (modal đã gọi API rồi)
         setEmployeeList(prevList => prevList.filter(emp => emp.key !== key))
+        
+        // Reload lại từ server để đồng bộ với database
+        // Nếu tổng số items giảm xuống và trang hiện tại rỗng, quay về trang trước
+        const remainingItems = pagination.total - 1
+        const maxPage = Math.ceil(remainingItems / pagination.pageSize)
+        const targetPage = pagination.current > maxPage ? maxPage : pagination.current
+        
+        // Reload data
+        fetchUsers(targetPage || 1, pagination.pageSize)
     }
 
     const handleAddEmployee = (newEmployee: Omit<EmployeeData, 'key'>) => {

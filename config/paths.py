@@ -30,20 +30,35 @@ class PathConfig(BaseConfig):
     FAISS_TEST_FILE_PATH: str = str(FAISS_TEST_DIR / "face_index.faiss")
     FAISS_TEST_MAPPING_FILE_PATH: str = str(FAISS_TEST_DIR / "faiss_mapping.pkl")
 
+    # Backend paths
+    USERS_DATA_PATH: str
+    USERS_DATA_DIR: Path | None = None
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        # Chuẩn hoá USERS_DATA_PATH thành Path tuyệt đối
+        raw_path = Path(self.USERS_DATA_PATH)
+        if not raw_path.is_absolute():
+            self.USERS_DATA_DIR = (self.ROOT_DIR / raw_path).resolve()
+        else:
+            self.USERS_DATA_DIR = raw_path.resolve()
+
+        # Map model URLs để tiện download
         self._model_map = {
             "retinaface.onnx": self.MODEL_RETINAFACE_URL,
             "arcface.onnx": self.MODEL_ARCFACE_URL,
         }
 
+        # Tạo thư mục cần thiết
         self.ensure_directories()
+
+        # Kiểm tra model, tải nếu chưa có
         self.ensure_models()
 
     def ensure_directories(self):
         """Tạo thư mục cần thiết nếu chưa có"""
-        for path in [self.MODEL_DIR, self.FAISS_DIR]:
+        for path in [self.MODEL_DIR, self.FAISS_DIR, self.USERS_DATA_DIR]:
             if not path.exists():
                 path.mkdir(parents=True, exist_ok=True)
                 LOGGER.info(f"Created directory: {path}")

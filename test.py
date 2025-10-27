@@ -1,3 +1,5 @@
-from config.dependencies import get_current_user
+from config import paths
 
-print(get_current_user(credentials="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OGY5ZGFkZDdlMjY5ODVkYjdlMDM1ZDkiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYxMjY5NDI3fQ.eCUYoY9K_b2zfKHMx7h2lNkvVgPrYSJ8bsUGRKOD5bs"))
+print(paths.USERS_DATA_PATH)
+print(paths.USERS_DATA_DIR)
+print(paths.USERS_DATA_DIR.exists())

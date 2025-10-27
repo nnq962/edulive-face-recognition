@@ -1,17 +1,18 @@
 # backend/routes/user.py
 
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 
 from backend.schemas.user import UserCreate, UserCreateResponse
 from backend.schemas.common import ApiResponse, ApiError, PaginatedResponse
-from backend.services.user import create_user, fetch_all_users, fetch_users_with_pagination
+from backend.services.user import create_user, fetch_users_with_pagination, delete_user
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 from backend.utils.filters import UserFilterParams
 from config.dependencies import get_db, require_admin
 from backend.utils.permissions import ensure_can_manage
-from typing import List, Optional, Literal
-
+from typing import Optional, Literal
+from utils.logger import LOGGER
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -60,6 +61,7 @@ async def create_new_user(
         position=created_user["position"],
         department=created_user["department"],
         telegram_username=created_user.get("telegram_username"),
+        is_active=created_user.get("is_active", True),
     )
 
     return ApiResponse[UserCreateResponse](
@@ -144,4 +146,84 @@ async def get_users(
         message="Successfully fetched users",
         data=payload,
         meta=meta,
+    )
+
+
+# ==================== Delete User API ====================
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=ApiResponse[None],
+    responses={
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def delete_user_by_id(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    **Xóa user theo ID**
+
+    - Chỉ admin hoặc super_admin được phép xóa user
+    - Không thể xóa chính mình
+    - Admin không thể xóa super_admin
+    
+    **Ví dụ:**
+    - DELETE /api/users/507f1f77bcf86cd799439011
+    """
+    # Kiểm tra không thể xóa chính mình
+    current_user_id_str = str(current_user.get("id", ""))
+    LOGGER.info(f"Current user ID: {current_user_id_str}")
+    LOGGER.info(f"User ID to delete: {user_id}")
+    if current_user_id_str == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete yourself"
+        )
+    
+    # Lấy thông tin user sắp xóa để kiểm tra quyền
+    users_collection = db["users"]
+    
+    try:
+        target_user_id = ObjectId(user_id)
+    except Exception:
+        target_user_id = user_id
+    
+    target_user = await users_collection.find_one({"_id": target_user_id})
+    
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Kiểm tra quyền: Admin không thể xóa super_admin
+    ensure_can_manage(current_user["role"], target_user["role"], action="delete")
+    
+    # Xóa user
+    success = await delete_user(db, user_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    return ApiResponse[None](
+        success=True,
+        message=f"Successfully deleted user {user_id}",
+        data=None,
     )

@@ -2,42 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Table, Button, Space, Input, Form, message, Popconfirm } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { departmentsApi } from '@/api';
+import { useDepartments } from '@/contexts/DepartmentsContext';
+
 
 interface Department {
     key: string;
+    id: string;
     name: string;
 }
 
 interface DepartmentModalProps {
     open: boolean;
     onClose: () => void;
-    departments: string[];
-    onUpdate: (departments: string[]) => void;
 }
 
 const DepartmentModal: React.FC<DepartmentModalProps> = ({
     open,
     onClose,
-    departments,
-    onUpdate,
 }) => {
     const [form] = Form.useForm();
     const [dataSource, setDataSource] = useState<Department[]>([]);
     const [editingKey, setEditingKey] = useState<string>('');
     const [addingNew, setAddingNew] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const { departments, loading: fetchLoading, reload } = useDepartments();
 
     useEffect(() => {
         if (open) {
-            // Convert departments array to table data
-            const data = departments.map((dept, index) => ({
-                key: `dept-${index}`,
-                name: dept,
-            }));
-            setDataSource(data);
+            reload();
             setEditingKey('');
             setAddingNew(false);
         }
-    }, [open, departments]);
+    }, [open, reload]);
+
+    useEffect(() => {
+        if (departments) {
+            const data: Department[] = departments.map((dept: any) => ({
+                key: dept.id,
+                id: dept.id,
+                name: dept.name,
+            }));
+            setDataSource(data);
+        }
+    }, [departments]);
+
+    const loading = fetchLoading || actionLoading;
 
     const isEditing = (record: Department) => record.key === editingKey;
 
@@ -57,41 +68,64 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             const values = await form.validateFields();
             const newName = values.name.trim();
 
-            // Check duplicate
-            const isDuplicate = dataSource.some(
-                item => item.key !== key && item.name.toLowerCase() === newName.toLowerCase()
-            );
+            setActionLoading(true);
 
-            if (isDuplicate) {
-                message.error('Tên phòng ban đã tồn tại!');
-                return;
-            }
+            // Gọi API update
+            const department = dataSource.find(item => item.key === key);
+            if (!department) return;
 
-            const newData = [...dataSource];
-            const index = newData.findIndex(item => key === item.key);
+            await departmentsApi.updateDepartment({
+                id: department.id,
+                name: newName,
+            });
 
-            if (index > -1) {
-                newData[index].name = newName;
-                setDataSource(newData);
-                setEditingKey('');
-                form.resetFields();
-                message.success('Cập nhật phòng ban thành công');
-            }
-        } catch (error) {
-            console.error('Validation failed:', error);
+            message.success('Cập nhật phòng ban thành công');
+
+            // Reload lại danh sách
+            await reload();
+
+            setEditingKey('');
+            form.resetFields();
+
+        } catch (error: any) {
+            console.error('Lỗi khi cập nhật phòng ban:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi cập nhật phòng ban';
+            message.error(errorMessage);
+        } finally {
+            setActionLoading(false);
         }
     };
 
-    const handleDelete = (key: string) => {
-        const newData = dataSource.filter(item => item.key !== key);
-        setDataSource(newData);
-        message.success('Xóa phòng ban thành công');
+    const handleDelete = async (record: Department) => {
+        try {
+            setActionLoading(true);
+
+            // Gọi API delete
+            await departmentsApi.deleteDepartment({ id: record.id });
+
+            message.success('Xóa phòng ban thành công');
+
+            // Reload lại danh sách
+            await reload();
+
+        } catch (error: any) {
+            console.error('Lỗi khi xóa phòng ban:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi xóa phòng ban';
+            message.error(errorMessage);
+        } finally {
+            setActionLoading(false);
+        }
     };
 
     const handleAddNew = () => {
         const newKey = `dept-new-${Date.now()}`;
         const newDepartment: Department = {
             key: newKey,
+            id: '', // Chưa có ID vì chưa tạo
             name: '',
         };
 
@@ -114,29 +148,28 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             const values = await form.validateFields();
             const newName = values.name.trim();
 
-            // Check duplicate
-            const isDuplicate = dataSource.some(
-                item => item.key !== editingKey && item.name.toLowerCase() === newName.toLowerCase()
-            );
+            setActionLoading(true);
 
-            if (isDuplicate) {
-                message.error('Tên phòng ban đã tồn tại!');
-                return;
-            }
+            // Gọi API create
+            await departmentsApi.createDepartment({ name: newName });
 
-            const newData = [...dataSource];
-            const index = newData.findIndex(item => item.key === editingKey);
+            message.success('Thêm phòng ban thành công');
 
-            if (index > -1) {
-                newData[index].name = newName;
-                setDataSource(newData);
-                setEditingKey('');
-                setAddingNew(false);
-                form.resetFields();
-                message.success('Thêm phòng ban thành công');
-            }
-        } catch (error) {
-            console.error('Validation failed:', error);
+            // Reload lại danh sách
+            await reload();
+
+            setEditingKey('');
+            setAddingNew(false);
+            form.resetFields();
+
+        } catch (error: any) {
+            console.error('Lỗi khi thêm phòng ban:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi thêm phòng ban';
+            message.error(errorMessage);
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -154,10 +187,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             return;
         }
 
-        // Update departments list
-        const updatedDepartments = dataSource.map(item => item.name);
-        onUpdate(updatedDepartments);
-        message.success('Đã lưu danh sách phòng ban');
+        // Đóng modal
         onClose();
     };
 
@@ -207,6 +237,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                             type="primary"
                             size="small"
                             icon={<SaveOutlined />}
+                            loading={loading}
                             onClick={() => addingNew ? handleSaveNew() : handleSave(record.key)}
                         >
                             Lưu
@@ -214,6 +245,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                         <Button
                             size="small"
                             icon={<CloseOutlined />}
+                            disabled={loading}
                             onClick={() => addingNew ? handleCancelNew() : handleCancel()}
                         >
                             Hủy
@@ -226,25 +258,25 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                             size="small"
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
-                            disabled={editingKey !== ''}
+                            disabled={editingKey !== '' || loading}
                         >
                             Sửa
                         </Button>
                         <Popconfirm
                             title="Xóa phòng ban"
                             description="Bạn có chắc chắn muốn xóa phòng ban này?"
-                            onConfirm={() => handleDelete(record.key)}
+                            onConfirm={() => handleDelete(record)}
                             okText="Xóa"
                             cancelText="Hủy"
-                            okButtonProps={{ danger: true }}
-                            disabled={editingKey !== ''}
+                            okButtonProps={{ danger: true, loading }}
+                            disabled={editingKey !== '' || loading}
                         >
                             <Button
                                 type="link"
                                 danger
                                 size="small"
                                 icon={<DeleteOutlined />}
-                                disabled={editingKey !== ''}
+                                disabled={editingKey !== '' || loading}
                             >
                                 Xóa
                             </Button>
@@ -285,7 +317,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     type="dashed"
                     icon={<PlusOutlined />}
                     onClick={handleAddNew}
-                    disabled={editingKey !== ''}
+                    disabled={editingKey !== '' || loading}
                     block
                     style={{
                         boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
@@ -298,6 +330,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 <Table
                     dataSource={dataSource}
                     columns={columns}
+                    loading={loading}
                     pagination={false}
                     size="small"
                     bordered
@@ -308,7 +341,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     style={{
                         boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
                         borderRadius: '8px 8px 8px 8px',
-                        overflow: 'hidden', // Để borderRadius hiệu lực
+                        overflow: 'hidden',
                     }}
                 />
 
@@ -322,9 +355,9 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                     <strong>Lưu ý:</strong>
                     <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', borderRadius: 8 }}>
                         <li>Nhấn "Thêm phòng ban mới" để tạo phòng ban</li>
-                        <li>Nhấn "Sửa" để chỉnh sửa tên phòng ban</li>
-                        <li>Nhấn "Xóa" để xóa phòng ban (lưu ý: nhân viên thuộc phòng ban này sẽ cần được cập nhật lại)</li>
-                        <li>Nhấn "Hoàn thành" để lưu tất cả thay đổi</li>
+                        <li>Nhấn "Sửa" để chỉnh sửa tên phòng ban (tự động cập nhật cho tất cả nhân viên)</li>
+                        <li>Nhấn "Xóa" để xóa phòng ban (chỉ xóa được nếu không có nhân viên nào thuộc phòng ban này)</li>
+                        <li>Thay đổi được lưu ngay lập tức, không cần nhấn "Hoàn thành"</li>
                     </ul>
                 </div>
             </Space>

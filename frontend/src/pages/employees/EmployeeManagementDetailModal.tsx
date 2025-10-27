@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Button, Space, message, Popconfirm, Tabs, Upload, Image, Card } from 'antd';
 import { DeleteOutlined, SaveOutlined, InboxOutlined, CloseCircleFilled, SettingOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
+import { employeesApi } from '@/api';
+import { useDepartments } from '@/contexts/DepartmentsContext';
 import DepartmentModal from './DepartmentModal';
 
 const { Dragger } = Upload;
@@ -37,10 +39,11 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('1');
     const [images, setImages] = useState<string[]>([]);
-    
-    // Department management states
+
+    // Department hook
+    const { departments, loading: departmentsLoading, reload } = useDepartments();
+
     const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
-    const [departments, setDepartments] = useState<string[]>(['Tầng 1', 'Tầng 2', 'Tầng 3']);
 
     useEffect(() => {
         if (employeeData && open) {
@@ -92,22 +95,39 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
         }
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         if (!employeeData) return;
 
-        setLoading(true);
+        try {
+            setLoading(true);
 
-        // Simulate API call
-        setTimeout(() => {
+            // Gọi API xóa user
+            await employeesApi.deleteUser(employeeData.key);
+
+            // Thông báo thành công
+            message.success('Xóa nhân viên thành công');
+
+            // Gọi callback để cập nhật danh sách
             if (onDelete) {
                 onDelete(employeeData.key);
             }
 
-            message.success('Xóa nhân viên thành công');
-            setLoading(false);
+            // Đóng modal và reset form
             onClose();
             form.resetFields();
-        }, 1000);
+
+        } catch (error: any) {
+            console.error('Lỗi khi xóa nhân viên:', error);
+
+            // Hiển thị lỗi cụ thể từ backend
+            const errorMessage = error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Lỗi khi xóa nhân viên';
+
+            message.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCancel = () => {
@@ -238,14 +258,18 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                                 <Select
                                                     placeholder="Chọn phòng ban"
                                                     style={{ width: '100%' }}
+                                                    loading={departmentsLoading}
+                                                    // No allowClear, no tags
                                                 >
                                                     {departments.map(dept => (
-                                                        <Option key={dept} value={dept}>{dept}</Option>
+                                                        <Option key={dept.id} value={dept.name}>{dept.name}</Option>
                                                     ))}
                                                 </Select>
                                                 <Button
                                                     icon={<SettingOutlined />}
                                                     onClick={() => setDepartmentModalOpen(true)}
+                                                    type="default"
+                                                    aria-label="Quản lý phòng ban"
                                                 />
                                             </Space.Compact>
                                         </Form.Item>
@@ -279,7 +303,11 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                     <Space style={{ width: '100%', justifyContent: 'space-between', marginTop: 8 }}>
                                         <Popconfirm
                                             title="Xóa nhân viên"
-                                            description="Bạn có chắc chắn muốn xóa nhân viên này?"
+                                            description={
+                                                <>
+                                                    Bạn có chắc chắn muốn xóa nhân viên <strong>{employeeData.employeeName}</strong>?
+                                                </>
+                                            }
                                             onConfirm={handleDelete}
                                             okText="Xóa"
                                             cancelText="Hủy"
@@ -459,16 +487,9 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 />
             </Modal>
 
-            {/* Department Management Modal */}
             <DepartmentModal
                 open={departmentModalOpen}
                 onClose={() => setDepartmentModalOpen(false)}
-                departments={departments}
-                onUpdate={(newDepartments) => {
-                    setDepartments(newDepartments);
-                    // TODO: Gọi API để lưu vào database
-                    console.log('Updated departments:', newDepartments);
-                }}
             />
         </>
     );

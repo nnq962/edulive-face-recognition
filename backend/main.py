@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from config.database import connect_to_mongodb, close_mongodb_connection, create_indexes
-from backend.routes import user, auth
+from backend.routes import user, auth, department
 from backend.schemas.common import ApiError
 from utils import LOGGER
 
@@ -108,6 +108,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # Include routers
 app.include_router(user.router)
 app.include_router(auth.router)
+app.include_router(department.router)
 
 
 @app.get("/")

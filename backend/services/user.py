@@ -1,5 +1,6 @@
 # backend/services/user.py
 
+import os
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.schemas.user import UserCreate
 from backend.models.user import UserModel
@@ -10,6 +11,8 @@ from utils import LOGGER
 import re
 from unidecode import unidecode
 from utils.common import normalize_mongo_doc
+from config import paths
+from bson import ObjectId
 
 
 USER_COLLECTION = "users"
@@ -160,10 +163,13 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
                 
         # 7. Lấy user vừa tạo
         created_user = await users_collection.find_one({"_id": result.inserted_id})
-        
-        # Convert ObjectId to string
         created_user["_id"] = str(created_user["_id"])
-        
+
+        # 8. Tạo thư mục user data
+        user_dir = paths.USERS_DATA_DIR / created_user["_id"]
+        os.makedirs(user_dir, exist_ok=True)
+        LOGGER.info(f"Created user directory: {user_dir}")
+
         return created_user
         
     except Exception as e:
@@ -220,3 +226,67 @@ async def fetch_users_with_pagination(
     normalized_users = [normalize_mongo_doc(u) for u in users]
     
     return normalized_users, total
+
+
+async def delete_user(db: AsyncIOMotorDatabase, user_id: str) -> bool:
+    """
+    Xóa user theo ID
+    
+    Args:
+        db: Database instance
+        user_id: ID của user cần xóa
+    
+    Returns:
+        bool: True nếu xóa thành công, False nếu không tìm thấy user
+    
+    Raises:
+        Exception: Nếu có lỗi khi xóa user
+    """
+    try:
+        users_collection = db[USER_COLLECTION]
+
+        # Convert string ID -> ObjectId nếu có thể
+        try:
+            object_id = ObjectId(user_id)
+        except Exception:
+            object_id = user_id
+
+        # 1. Kiểm tra user tồn tại
+        existing_user = await users_collection.find_one({"_id": object_id})
+        if not existing_user:
+            LOGGER.warning(f"User not found: {user_id}")
+            return False
+
+        # 2. Xóa user khỏi MongoDB
+        result = await users_collection.delete_one({"_id": object_id})
+
+        # 3️⃣ Nếu xóa DB thành công → đổi tên thư mục data/<user_id> → data/<user_id>_deleted
+        if result.deleted_count > 0:
+            user_dir = paths.USERS_DATA_DIR / str(user_id)
+            deleted_dir = paths.USERS_DATA_DIR / f"{user_id}_deleted"
+
+            if user_dir.exists():
+                try:
+                    # Nếu thư mục _deleted đã tồn tại (xoá lần 2) → thêm timestamp tránh trùng
+                    if deleted_dir.exists():
+                        from datetime import datetime
+                        suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        deleted_dir = paths.USERS_DATA_DIR / f"{user_id}_deleted_{suffix}"
+
+                    os.rename(user_dir, deleted_dir)
+                    LOGGER.info(f"Renamed user dir to: {deleted_dir}")
+                except Exception as e:
+                    LOGGER.error(f"Failed to rename user dir {user_dir} → {deleted_dir}: {e}")
+            else:
+                LOGGER.warning(f"No data folder found for user {user_id}")
+
+            LOGGER.info(f"Successfully deleted user: {user_id}")
+            return True
+
+        else:
+            LOGGER.warning(f"Failed to delete user: {user_id}")
+            return False
+
+    except Exception as e:
+        LOGGER.error(f"Error deleting user {user_id}: {e}")
+        raise

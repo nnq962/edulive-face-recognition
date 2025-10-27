@@ -14,6 +14,9 @@ const employeesApi = {
         is_active?: boolean;
         search?: string;
     }) => axiosClient.get("/users", { params }),
+
+    // Xóa user theo ID
+    deleteUser: (id: string) => axiosClient.delete(`/users/${id}`),
 };
 
 export default employeesApi;
