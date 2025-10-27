@@ -81,4 +81,3 @@ dist/
 # Folder
 data/
 ai_models/
-runs/ai_service/ai_models/*.onnx
