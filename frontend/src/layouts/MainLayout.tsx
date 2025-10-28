@@ -27,11 +27,11 @@ const routeConfig: Record<string, { icon: React.ReactNode; title: string; allowe
         title: 'Dữ liệu',
         allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
     },
-    '/approvals': { 
-        icon: <CheckCircleOutlined />, 
-        title: 'Phê duyệt',
-        allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
-    },
+    // '/approvals': { 
+    //     icon: <CheckCircleOutlined />, 
+    //     title: 'Phê duyệt',
+    //     allowedRoles: ['admin', 'super_admin'] // Chỉ admin và super_admin
+    // },
     '/employees': { 
         icon: <UserOutlined />, 
         title: 'Nhân sự',

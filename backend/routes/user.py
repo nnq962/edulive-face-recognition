@@ -1,6 +1,8 @@
 # backend/routes/user.py
 
+import os
 from fastapi import APIRouter, Depends, status, Query, HTTPException, File, UploadFile
+from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 
@@ -14,6 +16,7 @@ from backend.utils.permissions import ensure_can_manage
 from typing import Optional, Literal
 from utils.logger import LOGGER
 from typing import List
+from pathlib import Path
 
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -360,3 +363,139 @@ async def upload_user_faces_route(
             "invalid_files": result["invalid_files"],
         },
     )
+
+
+# ==================== Get User Faces API ====================
+@router.get(
+    "/{user_id}/faces",
+    response_model=ApiResponse[List[str]],
+    response_model_exclude_none=True,
+    responses={
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },  
+    },
+)
+async def get_user_faces_route(
+    user_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Lấy danh sách ảnh khuôn mặt của user.
+    """
+    # 1. Kiểm tra user tồn tại
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    photos_path = user.get("photos_path", [])
+
+    return ApiResponse[List[str]](
+        success=True,
+        message=f"Found {len(photos_path)} face image(s)",
+        data=photos_path,
+    )
+
+
+# ==================== View User Faces API ====================
+@router.get(
+    "/{user_id}/faces/{filename}",
+)
+async def view_user_faces_route(
+    user_id: str,
+    filename: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Xem ảnh khuôn mặt của user.
+    """
+    # 1. Kiểm tra user
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Xác định file path
+    faces_dir = Path(user["data_directory"]) / "faces"
+    file_path = faces_dir / filename
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Face image not found")
+
+    return FileResponse(
+        path=file_path,
+        media_type="image/jpeg",
+        filename=filename
+    )
+
+
+# ==================== Delete User Faces API ====================
+@router.delete(
+    "/{user_id}/faces/{filename}",
+    response_model=ApiResponse[None],
+    response_model_exclude_none=True,
+    responses={
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def delete_user_faces_route(
+    user_id: str,
+    filename: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Xóa 1 ảnh khuôn mặt của user.
+    """
+    # 1. Kiểm tra user tồn tại
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Tìm file path
+    faces_dir = Path(user["data_directory"]) / "faces"
+    file_path = faces_dir / filename
+
+    # 3. Kiểm tra file tồn tại
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Face image not found")
+
+    try:
+        # 4. Xóa file vật lý
+        os.remove(file_path)
+
+        # 5. Xóa khỏi DB (nếu có trong danh sách)
+        await db["users"].update_one(
+            {"_id": ObjectId(user_id)},
+            {"$pull": {"photos_path": f"{filename}"}},
+        )
+
+        return ApiResponse[None](
+            success=True,
+            message=f"Face image '{filename}' deleted successfully",
+            data=None,
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")

@@ -274,7 +274,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                                 border: '2px solid #e8e8e8'
                             }}
                         />
-                        <Button
+                        {/* <Button
                             danger
                             size="small"
                             style={{
@@ -286,7 +286,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                             }}
                         >
                             Đây không phải tui
-                        </Button>
+                        </Button> */}
                     </div>
 
                     {/* Check Out */}
@@ -323,7 +323,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                                 border: '2px solid #e8e8e8'
                             }}
                         />
-                        <Button
+                        {/* <Button
                             danger
                             size="small"
                             style={{
@@ -335,12 +335,12 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                             }}
                         >
                             Đây không phải tui
-                        </Button>
+                        </Button> */}
                     </div>
                 </div>
             </Card>
 
-            <Card
+            {/* <Card
                 title="Báo cáo"
                 size="small"
                 style={{
@@ -348,7 +348,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 }}
             >
                 <Tabs items={tabItems} />
-            </Card>
+            </Card> */}
         </Modal>
     )
 }

@@ -15,16 +15,13 @@ from utils.common import normalize_mongo_doc
 from config import paths
 from bson import ObjectId
 from utils.time_helper import utc_now
-from typing import Optional
-from fastapi import HTTPException
 from PIL import Image
 import time
 import shutil
 import pillow_heif
-import os
 from pathlib import Path
-from typing import List
-from fastapi import UploadFile
+from typing import List, Dict, Optional
+from fastapi import UploadFile, HTTPException
 import asyncio
 
 
@@ -460,7 +457,7 @@ async def upload_user_faces(
             continue
 
         # Hợp lệ: thêm vào danh sách
-        saved_files.append(f"faces/{out_name}")
+        saved_files.append(f"{out_name}")
 
     # 4. Cập nhật DB nếu có ảnh hợp lệ
     if saved_files:

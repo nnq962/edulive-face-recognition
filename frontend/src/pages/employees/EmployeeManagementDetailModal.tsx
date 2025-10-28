@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, Button, Space, message, Popconfirm, Tabs, Upload, Image, Card } from 'antd';
 import { DeleteOutlined, SaveOutlined, InboxOutlined, CloseCircleFilled, SettingOutlined } from '@ant-design/icons';
-import type { UploadProps } from 'antd';
+import type { UploadProps, UploadFile } from 'antd/es/upload/interface';
 import { employeesApi } from '@/api';
 import { useDepartments } from '@/contexts/DepartmentsContext';
 import DepartmentModal from './DepartmentModal';
@@ -40,7 +40,10 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('1');
-    const [images, setImages] = useState<string[]>([]);
+    const [images, setImages] = useState<{ filename: string; url: string }[]>([]);
+    const [loadingImages, setLoadingImages] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState(false);
+    const [fileList, setFileList] = useState<UploadFile[]>([]);
 
     // Department hook
     const { departments, loading: departmentsLoading, reload } = useDepartments();
@@ -59,17 +62,83 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 status: employeeData.status,
             });
 
-            // Mock images cho user
-            const mockImages = [
-                'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
-                'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
-                'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
-                'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
-            ];
-            setImages(mockImages);
             setActiveTab('1');
+            
+            // Load images khi mở modal
+            if (employeeData.key) {
+                fetchUserFaces(employeeData.key);
+            }
         }
     }, [employeeData, open, departments, form]);
+
+    // Fetch danh sách ảnh khuôn mặt của user
+    const fetchUserFaces = async (userId: string) => {
+        try {
+            setLoadingImages(true);
+            const response = await employeesApi.getUserFaces(userId);
+            
+            console.log('User faces response:', response.data);
+            
+            // Backend trả về: { success: true, data: ["face_xxx.jpg", ...] }
+            const faceFiles = response.data.data || [];
+            
+            // Load từng ảnh qua API (có token)
+            const loadedImages = await Promise.all(
+                faceFiles.map(async (filename: string) => {
+                    try {
+                        // Gọi API viewUserFace qua axios (có token trong header)
+                        const imageResponse = await employeesApi.viewUserFace(userId, filename);
+                        
+                        // Tạo blob URL từ response data
+                        const blob = new Blob([imageResponse.data], { type: 'image/jpeg' });
+                        const objectUrl = URL.createObjectURL(blob);
+                        
+                        return {
+                            filename,
+                            url: objectUrl,
+                        };
+                    } catch (error) {
+                        console.error(`Lỗi khi load ảnh ${filename}:`, error);
+                        return {
+                            filename,
+                            url: '',
+                        };
+                    }
+                })
+            );
+            
+            setImages(loadedImages.filter(img => img.url !== ''));
+        } catch (error: any) {
+            console.error('Lỗi khi tải ảnh khuôn mặt:', error);
+            setImages([]);
+        } finally {
+            setLoadingImages(false);
+        }
+    };
+
+    // Xóa ảnh khuôn mặt
+    const handleRemoveImage = async (filename: string) => {
+        if (!employeeData) return;
+
+        try {
+            setLoadingImages(true);
+            
+            await employeesApi.deleteUserFace(employeeData.key, filename);
+            
+            message.success('Đã xóa ảnh thành công');
+            
+            // Reload lại danh sách ảnh
+            await fetchUserFaces(employeeData.key);
+        } catch (error: any) {
+            console.error('Lỗi khi xóa ảnh:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi xóa ảnh';
+            message.error(errorMessage);
+        } finally {
+            setLoadingImages(false);
+        }
+    };
 
     const handleUpdate = async () => {
         if (!employeeData) return;
@@ -148,40 +217,129 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const handleCancel = () => {
         form.resetFields();
         setActiveTab('1');
+        
+        // Cleanup: Revoke object URLs để giải phóng memory
+        images.forEach(image => {
+            if (image.url && image.url.startsWith('blob:')) {
+                URL.revokeObjectURL(image.url);
+            }
+        });
+        
         setImages([]);
+        setFileList([]);
         onClose();
     };
 
     const uploadProps: UploadProps = {
-        name: 'file',
+        name: 'files',
         multiple: true,
-        action: '/api/upload', // Thay bằng API endpoint thật
-        onChange(info) {
-            const { status } = info.file;
-            if (status === 'done') {
-                message.success(`${info.file.name} tải lên thành công.`);
-            } else if (status === 'error') {
-                message.error(`${info.file.name} tải lên thất bại.`);
-            }
-        },
+        fileList: fileList,
         beforeUpload: (file) => {
             const isImage = file.type.startsWith('image/');
             if (!isImage) {
                 message.error('Bạn chỉ có thể upload file ảnh!');
                 return false;
             }
-            const isLt5M = file.size / 1024 / 1024 < 10;
-            if (!isLt5M) {
+            const isLt10M = file.size / 1024 / 1024 < 10;
+            if (!isLt10M) {
                 message.error('Kích thước file phải nhỏ hơn 10MB!');
                 return false;
             }
-            return isLt5M;
+            
+            // Thêm file vào fileList với originFileObj chính xác
+            setFileList(prev => [...prev, {
+                uid: file.uid,
+                name: file.name,
+                status: 'done',
+                originFileObj: file,
+            } as UploadFile]);
+            
+            // Không upload tự động
+            return false;
+        },
+        onRemove: (file) => {
+            setFileList(prev => prev.filter(f => f.uid !== file.uid));
+        },
+        showUploadList: {
+            showRemoveIcon: true,
+            showPreviewIcon: false,
         },
     };
 
-    const handleRemoveImage = (index: number) => {
-        setImages(prevImages => prevImages.filter((_, i) => i !== index));
-        message.success('Đã xóa ảnh');
+    // Upload ảnh
+    const handleUploadImages = async () => {
+        if (!employeeData) return;
+        if (fileList.length === 0) {
+            message.warning('Vui lòng chọn ít nhất 1 ảnh để upload');
+            return;
+        }
+
+        try {
+            setUploadingImages(true);
+
+            // Convert fileList to File[]
+            const files: File[] = [];
+            for (const fileItem of fileList) {
+                if (fileItem.originFileObj) {
+                    files.push(fileItem.originFileObj as File);
+                }
+            }
+
+            if (files.length === 0) {
+                message.error('Không có file hợp lệ để upload');
+                return;
+            }
+
+            console.log('Uploading files:', files.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
+            const response = await employeesApi.uploadUserFaces(employeeData.key, files);
+
+            console.log('Upload response:', response.data);
+
+            // Backend trả về: { success, message, data: [...], meta: {...} }
+            const { data, meta } = response.data;
+
+            // Hiển thị kết quả
+            if (meta.valid_count > 0) {
+                message.success(`Đã upload thành công ${meta.valid_count} ảnh!`);
+            }
+
+            if (meta.invalid_count > 0) {
+                // Hiển thị chi tiết các file không hợp lệ
+                const invalidDetails = meta.invalid_files
+                    .map((f: any) => `${f.file}: ${f.reason}`)
+                    .join('\n');
+                
+                message.warning({
+                    content: (
+                        <div>
+                            <div style={{ marginBottom: 8 }}>
+                                <strong>{meta.invalid_count} ảnh không hợp lệ</strong>
+                            </div>
+                            <div style={{ fontSize: 12, whiteSpace: 'pre-line' }}>
+                                {invalidDetails}
+                            </div>
+                        </div>
+                    ),
+                    duration: 8,
+                });
+            }
+
+            // Clear fileList
+            setFileList([]);
+
+            // Reload lại danh sách ảnh
+            await fetchUserFaces(employeeData.key);
+
+        } catch (error: any) {
+            console.error('Lỗi khi upload ảnh:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi upload ảnh';
+            message.error(errorMessage);
+        } finally {
+            setUploadingImages(false);
+        }
     };
 
     if (!employeeData) return null;
@@ -370,6 +528,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                             borderRadius: 8,
                                         }}
                                         size="small"
+                                        loading={loadingImages}
                                     >
                                         {images.length === 0 ? (
                                             <div style={{
@@ -404,7 +563,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                                             display: 'inline-block'
                                                         }}>
                                                             <Image
-                                                                src={image}
+                                                                src={image.url}
                                                                 alt={`Face ${index + 1}`}
                                                                 width={120}
                                                                 height={120}
@@ -412,21 +571,32 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                                                     objectFit: 'cover',
                                                                     borderRadius: 8
                                                                 }}
-                                                            />
-                                                            <CloseCircleFilled
-                                                                style={{
-                                                                    position: 'absolute',
-                                                                    top: 4,
-                                                                    right: 4,
-                                                                    fontSize: 18,
-                                                                    color: '#ff4d4f',
-                                                                    cursor: 'pointer',
-                                                                    backgroundColor: 'white',
-                                                                    borderRadius: '50%',
-                                                                    zIndex: 10
+                                                                preview={{
+                                                                    mask: 'Xem ảnh'
                                                                 }}
-                                                                onClick={() => handleRemoveImage(index)}
                                                             />
+                                                            <Popconfirm
+                                                                title="Xóa ảnh"
+                                                                description="Bạn có chắc chắn muốn xóa ảnh này?"
+                                                                onConfirm={() => handleRemoveImage(image.filename)}
+                                                                okText="Xóa"
+                                                                cancelText="Hủy"
+                                                                okButtonProps={{ danger: true }}
+                                                            >
+                                                                <CloseCircleFilled
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: 4,
+                                                                        right: 4,
+                                                                        fontSize: 18,
+                                                                        color: '#ff4d4f',
+                                                                        cursor: 'pointer',
+                                                                        backgroundColor: 'white',
+                                                                        borderRadius: '50%',
+                                                                        zIndex: 10
+                                                                    }}
+                                                                />
+                                                            </Popconfirm>
                                                         </div>
                                                     </Card>
                                                 ))}
@@ -477,9 +647,10 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                                 <strong>Lưu ý:</strong>
                                             </p>
                                             <ul style={{ margin: '8px 0 0 0', paddingLeft: 20, fontSize: 13, color: '#666' }}>
-                                                <li>Chỉ chấp nhận file ảnh (JPG, PNG, ...)</li>
+                                                <li>Chỉ chấp nhận file ảnh (JPG, PNG, HEIC, ...)</li>
                                                 <li>Kích thước tối đa: 10MB/ảnh</li>
-                                                <li>Tối đa 20 ảnh cho mỗi nhân viên</li>
+                                                <li>Mỗi ảnh chỉ được có <strong>1 khuôn mặt</strong></li>
+                                                <li>Ảnh có nhiều hơn 1 khuôn mặt hoặc không có khuôn mặt sẽ bị từ chối</li>
                                                 <li>Nên chụp ảnh khuôn mặt rõ ràng, nhiều góc độ khác nhau</li>
                                             </ul>
                                         </div>
@@ -489,16 +660,11 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                         <Button
                                             type="primary"
                                             icon={<SaveOutlined />}
-                                            loading={loading}
-                                            onClick={() => {
-                                                setLoading(true);
-                                                setTimeout(() => {
-                                                    message.success('Lưu thư viện ảnh thành công');
-                                                    setLoading(false);
-                                                }, 1000);
-                                            }}
+                                            loading={uploadingImages}
+                                            onClick={handleUploadImages}
+                                            disabled={fileList.length === 0}
                                         >
-                                            Lưu thư viện
+                                            Upload {fileList.length > 0 ? `(${fileList.length})` : ''}
                                         </Button>
                                     </Space>
                                 </>

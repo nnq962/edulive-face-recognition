@@ -107,16 +107,16 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      {
-        path: 'approvals',
-        element: (
-          <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
-            <Suspense fallback={null}>
-              <Approvals />
-            </Suspense>
-          </ProtectedRoute>
-        ),
-      },
+      // {
+      //   path: 'approvals',
+      //   element: (
+      //     <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+      //       <Suspense fallback={null}>
+      //         <Approvals />
+      //       </Suspense>
+      //     </ProtectedRoute>
+      //   ),
+      // },
     ],
   },
   // Bất kỳ path nào khác → redirect về /

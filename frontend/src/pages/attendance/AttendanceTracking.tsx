@@ -9,7 +9,7 @@ const AttendanceTracking: React.FC = () => {
             <AttendanceDetailTable />
 
             {/* Bảng báo cáo ở dưới */}
-            <AttendanceReport />
+            {/* <AttendanceReport /> */}
         </div>
     )
 }
