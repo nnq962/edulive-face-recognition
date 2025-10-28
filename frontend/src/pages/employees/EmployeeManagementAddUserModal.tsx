@@ -3,6 +3,7 @@ import { Modal, Form, Input, Select, Button, Space, message } from 'antd';
 import { SaveOutlined, SettingOutlined } from '@ant-design/icons';
 import DepartmentModal from './DepartmentModal';
 import { useDepartments } from '@/contexts/DepartmentsContext';
+import { employeesApi } from '@/api'
 
 const { Option } = Select;
 
@@ -20,13 +21,13 @@ interface EmployeeData {
 interface EmployeeManagementAddUserModalProps {
     open: boolean;
     onClose: () => void;
-    onAdd?: (data: Omit<EmployeeData, 'key'>) => void;
+    onAddSuccess?: () => void; // callback khi thêm nhân viên thành công để reload danh sách
 }
 
 const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalProps> = ({
     open,
     onClose,
-    onAdd,
+    onAddSuccess,
 }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -38,25 +39,31 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
     const handleAdd = async () => {
         try {
             const values = await form.validateFields();
+            console.log("Form values:", values);
             setLoading(true);
 
-            // Simulate API call
-            setTimeout(() => {
-                const newEmployee: Omit<EmployeeData, 'key'> = {
-                    ...values,
-                };
+            // Map form field -> backend field
+            const payload = {
+                full_name: values.employeeName,
+                role: values.role,
+                position: values.position,
+                department: values.department,
+                telegram_username: values.telegram || undefined,
+            };
 
-                if (onAdd) {
-                    onAdd(newEmployee);
-                }
-
-                message.success('Thêm nhân viên thành công');
-                setLoading(false);
-                form.resetFields();
-                onClose();
-            }, 1000);
-        } catch (error) {
-            console.error('Validation failed:', error);
+            const response = await employeesApi.addUser(payload);
+            console.log("API Response:", response.data);
+            message.success("Thêm nhân viên thành công");
+            form.resetFields();
+            onClose();
+            if (onAddSuccess) {
+                onAddSuccess();
+            }
+        } catch (error: any) {
+            console.error("Validation failed:", error);
+            message.error(error.response?.data?.message || "Không thể thêm nhân viên");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -104,25 +111,14 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
                     </Form.Item>
 
                     <Form.Item
-                        name="email"
-                        label="Email"
-                        rules={[
-                            { type: 'email', message: 'Email không hợp lệ!' },
-                            { required: false, message: 'Vui lòng nhập email!' }
-                        ]}
-                    >
-                        <Input placeholder="Nhập email" />
-                    </Form.Item>
-
-                    <Form.Item
                         name="role"
                         label="Vai trò"
                         rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
                     >
                         <Select placeholder="Chọn vai trò">
-                            <Option value="User">User</Option>
-                            <Option value="Admin">Admin</Option>
-                            <Option value="Super Admin">Super Admin</Option>
+                            <Option value="user">User</Option>
+                            <Option value="admin">Admin</Option>
+                            <Option value="super_admin">Super Admin</Option>
                         </Select>
                     </Form.Item>
 
@@ -138,20 +134,27 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
                     </Form.Item>
 
                     <Form.Item
-                        name="department"
                         label="Phòng ban"
-                        rules={[{ required: true, message: 'Vui lòng chọn phòng ban!' }]}
+                        required
                     >
                         <Space.Compact style={{ width: '100%' }}>
-                            <Select
-                                placeholder="Chọn phòng ban"
-                                style={{ width: '100%' }}
-                                loading={departmentsLoading}
+                            <Form.Item
+                                name="department"
+                                noStyle
+                                rules={[{ required: true, message: 'Vui lòng chọn phòng ban!' }]}
                             >
-                                {departments.map(dept => (
-                                    <Option key={dept.id} value={dept.name}>{dept.name}</Option>
-                                ))}
-                            </Select>
+                                <Select
+                                    placeholder="Chọn phòng ban"
+                                    style={{ width: '100%' }}
+                                    loading={departmentsLoading}
+                                >
+                                    {departments.map(dept => (
+                                        <Option key={dept.id} value={dept.name}>
+                                            {dept.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
                             <Button
                                 icon={<SettingOutlined />}
                                 onClick={() => setDepartmentModalOpen(true)}
@@ -171,17 +174,6 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
                             addonBefore="@"
                             placeholder="username"
                         />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="status"
-                        label="Trạng thái"
-                        rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
-                    >
-                        <Select placeholder="Chọn trạng thái">
-                            <Option value="active">Hoạt động</Option>
-                            <Option value="inactive">Đã nghỉ</Option>
-                        </Select>
                     </Form.Item>
                 </Form>
 

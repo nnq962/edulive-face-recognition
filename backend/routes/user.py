@@ -1,18 +1,20 @@
 # backend/routes/user.py
 
-from fastapi import APIRouter, Depends, status, Query, HTTPException
+from fastapi import APIRouter, Depends, status, Query, HTTPException, File, UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 
-from backend.schemas.user import UserCreate, UserCreateResponse
-from backend.schemas.common import ApiResponse, ApiError, PaginatedResponse
-from backend.services.user import create_user, fetch_users_with_pagination, delete_user
+from backend.schemas.user import UserCreate, UserCreateResponse, UserUpdate, UserUpdateResponse
+from backend.schemas.common import ApiResponse, ApiError, PaginatedResponse, ApiResponseWithMeta
+from backend.services.user import create_user, fetch_users_with_pagination, delete_user, update_user, upload_user_faces
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 from backend.utils.filters import UserFilterParams
 from config.dependencies import get_db, require_admin
 from backend.utils.permissions import ensure_can_manage
 from typing import Optional, Literal
 from utils.logger import LOGGER
+from typing import List
+
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -51,6 +53,7 @@ async def create_new_user(
     """
     ensure_can_manage(current_user["role"], request.role, action="create")
     created_user = await create_user(db, request)
+    LOGGER.info(f"Created user: {created_user}")
 
     payload = UserCreateResponse(
         id=created_user["_id"],
@@ -60,6 +63,7 @@ async def create_new_user(
         role=created_user["role"],
         position=created_user["position"],
         department=created_user["department"],
+        data_directory=created_user.get("data_directory"),
         telegram_username=created_user.get("telegram_username"),
         is_active=created_user.get("is_active", True),
     )
@@ -226,4 +230,133 @@ async def delete_user_by_id(
         success=True,
         message=f"Successfully deleted user {user_id}",
         data=None,
+    )
+
+
+# ==================== Update User API ====================
+@router.put(
+    "/{user_id}",
+    response_model=ApiResponse[UserUpdateResponse],
+    response_model_exclude_none=True,
+    responses={
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def update_user_route(
+    user_id: str,
+    payload: UserUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Cập nhật thông tin user theo ID (chuẩn RESTful)
+    - Chặn admin sửa hoặc hạ quyền super_admin
+    - Chặn admin nâng role người khác vượt quyền của mình
+    """
+
+    # 1. Lấy thông tin user hiện tại từ DB
+    target_user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    LOGGER.info(f"Current user: {current_user}")
+    LOGGER.info(f"Target user (before update): {target_user}")
+    LOGGER.info(f"Payload: {payload}")
+    LOGGER.info(f"User ID: {user_id}")
+
+    # 2. Check quyền trên role cũ
+    ensure_can_manage(
+        requester_role=current_user["role"],
+        target_role=target_user["role"],
+        action="update existing",
+    )
+
+    # 3. Check quyền trên role mới (nếu có thay đổi role)
+    if payload.role and payload.role != target_user["role"]:
+        ensure_can_manage(
+            requester_role=current_user["role"],
+            target_role=payload.role,
+            action="assign new role",
+        )
+
+    # 4. Thực hiện update
+    updated = await update_user(db, user_id, payload)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found after update")
+
+    LOGGER.info(f"User updated successfully: {updated}")
+
+    return ApiResponse[UserUpdateResponse](
+        success=True,
+        message="Successfully updated user",
+        data=updated,
+    )
+
+
+# ==================== Upload User Faces API ====================
+@router.post(
+    "/{user_id}/faces",
+    response_model=ApiResponseWithMeta[List[str]],
+    response_model_exclude_none=True,
+    responses={
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def upload_user_faces_route(
+    user_id: str,
+    files: List[UploadFile] = File(...),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Upload nhiều ảnh khuôn mặt cho user.
+        - Lưu ảnh hợp lệ
+        - Bỏ qua ảnh không hợp lệ
+    """
+    # 1. Lấy thông tin user hiện tại từ DB
+    target_user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Check quyền
+    ensure_can_manage(current_user["role"], target_user["role"], action="upload photos of faces")
+
+    # 3. Upload ảnh khuôn mặt
+    result = await upload_user_faces(db, user_id, files)
+
+    return ApiResponseWithMeta[List[str]](
+        success=True if result["meta"]["valid_count"] > 0 else False,
+        message=(
+            f"Uploaded {result['meta']['valid_count']} valid and "
+            f"{result['meta']['invalid_count']} invalid face image(s)"
+        ),
+        data=result["photos_path"],
+        meta={
+            "valid_count": result["meta"]["valid_count"],
+            "invalid_count": result["meta"]["invalid_count"],
+            "total_uploaded": result["meta"]["total_uploaded"],
+            "invalid_files": result["invalid_files"],
+        },
     )

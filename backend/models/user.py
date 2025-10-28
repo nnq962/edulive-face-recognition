@@ -32,7 +32,8 @@ class UserModel(BaseModel):
     is_active: bool = Field(default=True)
     
     # Additional
-    photo_directory: Optional[str] = Field(default=None)
+    data_directory: Optional[str] = Field(default=None)
+    photos_path: List[str] = Field(default_factory=list)
     face_embeddings: Optional[List[float]] = Field(default=None)
     
     # Timestamps

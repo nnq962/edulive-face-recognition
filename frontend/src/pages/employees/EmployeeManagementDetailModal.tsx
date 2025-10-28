@@ -26,6 +26,7 @@ interface EmployeeManagementDetailModalProps {
     employeeData: EmployeeData | null;
     onUpdate?: (data: EmployeeData) => void;
     onDelete?: (key: string) => void;
+    onAddSuccess?: () => void; // reload bảng dữ liệu sau update
 }
 
 const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps> = ({
@@ -34,6 +35,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     employeeData,
     onUpdate,
     onDelete,
+    onAddSuccess,
 }) => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
@@ -46,18 +48,18 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
 
     useEffect(() => {
-        if (employeeData && open) {
+        if (employeeData && open && departments.length > 0) {
             form.setFieldsValue({
                 employeeName: employeeData.employeeName,
                 email: employeeData.email,
-                role: employeeData.role,
+                role: employeeData.role.toLowerCase(),
                 position: employeeData.position,
                 department: employeeData.department,
                 telegram: employeeData.telegram,
                 status: employeeData.status,
             });
 
-            // Mock images for the user
+            // Mock images cho user
             const mockImages = [
                 'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
                 'https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg',
@@ -67,31 +69,44 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             setImages(mockImages);
             setActiveTab('1');
         }
-    }, [employeeData, open, form]);
+    }, [employeeData, open, departments, form]);
 
     const handleUpdate = async () => {
+        if (!employeeData) return;
+
         try {
             const values = await form.validateFields();
             setLoading(true);
 
-            // Simulate API call
-            setTimeout(() => {
-                const updatedData: EmployeeData = {
-                    ...employeeData!,
-                    ...values,
-                };
+            const payload = {
+                full_name: values.employeeName,
+                email: values.email,
+                role: values.role,
+                position: values.position,
+                department: values.department,
+                telegram_username: values.telegram,
+                is_active: values.status === 'active',
+            };
 
-                if (onUpdate) {
-                    onUpdate(updatedData);
-                }
+            console.log('Payload:', payload);
 
-                message.success('Cập nhật thông tin nhân viên thành công');
-                setLoading(false);
-                onClose();
-                form.resetFields();
-            }, 1000);
-        } catch (error) {
-            console.error('Validation failed:', error);
+            await employeesApi.updateUser(employeeData.key, payload);
+
+            message.success('Cập nhật thông tin nhân viên thành công');
+
+            if (typeof onAddSuccess === 'function') {
+                onAddSuccess(); // reload bảng dữ liệu
+            }
+
+            setLoading(false);
+            form.resetFields();
+            onClose();
+        } catch (error: any) {
+            console.error('Lỗi khi cập nhật nhân viên:', error);
+            const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Lỗi khi cập nhật nhân viên';
+            message.error(errorMessage);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -232,9 +247,9 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                             rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
                                         >
                                             <Select placeholder="Chọn vai trò">
-                                                <Option value="User">User</Option>
-                                                <Option value="Admin">Admin</Option>
-                                                <Option value="Super Admin">Super Admin</Option>
+                                                <Option value="user">User</Option>
+                                                <Option value="admin">Admin</Option>
+                                                <Option value="super_admin">Super Admin</Option>
                                             </Select>
                                         </Form.Item>
 
@@ -250,21 +265,27 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                         </Form.Item>
 
                                         <Form.Item
-                                            name="department"
                                             label="Phòng ban"
-                                            rules={[{ required: true, message: 'Vui lòng chọn phòng ban!' }]}
+                                            required
                                         >
                                             <Space.Compact style={{ width: '100%' }}>
-                                                <Select
-                                                    placeholder="Chọn phòng ban"
-                                                    style={{ width: '100%' }}
-                                                    loading={departmentsLoading}
-                                                    // No allowClear, no tags
+                                                <Form.Item
+                                                    name="department"
+                                                    noStyle
+                                                    rules={[{ required: true, message: 'Vui lòng chọn phòng ban!' }]}
                                                 >
-                                                    {departments.map(dept => (
-                                                        <Option key={dept.id} value={dept.name}>{dept.name}</Option>
-                                                    ))}
-                                                </Select>
+                                                    <Select
+                                                        placeholder="Chọn phòng ban"
+                                                        style={{ width: '100%' }}
+                                                        loading={departmentsLoading}
+                                                    >
+                                                        {departments.map(dept => (
+                                                            <Option key={dept.id} value={dept.name}>
+                                                                {dept.name}
+                                                            </Option>
+                                                        ))}
+                                                    </Select>
+                                                </Form.Item>
                                                 <Button
                                                     icon={<SettingOutlined />}
                                                     onClick={() => setDepartmentModalOpen(true)}

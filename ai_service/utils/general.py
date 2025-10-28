@@ -8,7 +8,7 @@ import platform
 from subprocess import check_output
 import pkg_resources as pkg
 from .misc import TryExcept, emojis
-from .logger import LOGGER
+from utils import LOGGER
 
 
 FILE = Path(__file__).resolve()

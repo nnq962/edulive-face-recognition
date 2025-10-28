@@ -29,7 +29,7 @@ const EmployeeManagement: React.FC = () => {
     const [selectedEmployee, setSelectedEmployee] = useState<EmployeeData | null>(null)
     const [employeeList, setEmployeeList] = useState<EmployeeData[]>([])
     const [loading, setLoading] = useState(false)
-    
+
     // Pagination state
     const [pagination, setPagination] = useState({
         current: 1,
@@ -139,13 +139,13 @@ const EmployeeManagement: React.FC = () => {
     const handleDeleteEmployee = (key: string) => {
         // Xóa khỏi state local (modal đã gọi API rồi)
         setEmployeeList(prevList => prevList.filter(emp => emp.key !== key))
-        
+
         // Reload lại từ server để đồng bộ với database
         // Nếu tổng số items giảm xuống và trang hiện tại rỗng, quay về trang trước
         const remainingItems = pagination.total - 1
         const maxPage = Math.ceil(remainingItems / pagination.pageSize)
         const targetPage = pagination.current > maxPage ? maxPage : pagination.current
-        
+
         // Reload data
         fetchUsers(targetPage || 1, pagination.pageSize)
     }
@@ -169,28 +169,27 @@ const EmployeeManagement: React.FC = () => {
                 sort: 'created_at',
                 order: 'desc',
             })
-            
+
             console.log('API Response:', response.data)
-            
+
             // Backend trả về: { success: true, data: [...users], meta: {...pagination} }
             const users = response.data.data
             const meta = response.data.meta
-            
+
             // Map data từ backend sang format của frontend
             const formattedUsers: EmployeeData[] = users.map((user: any) => ({
                 key: user.id,
                 employeeName: user.full_name || user.username,
                 email: user.email,
-                role: user.role === 'super_admin' ? 'Super Admin' : 
-                      user.role === 'admin' ? 'Admin' : 'User',
+                role: user.role,
                 position: user.position || '',
                 department: user.department || '',
                 telegram: user.telegram_username || '',
                 status: user.is_active ? 'active' : 'inactive',
             }))
-            
+
             setEmployeeList(formattedUsers)
-            
+
             // Cập nhật pagination state
             setPagination({
                 current: meta.current_page,
@@ -217,11 +216,11 @@ const EmployeeManagement: React.FC = () => {
 
     const getRoleColor = (role: string) => {
         switch (role) {
-            case 'Super Admin':
+            case 'super_admin':
                 return 'red'
-            case 'Admin':
+            case 'admin':
                 return 'orange'
-            case 'User':
+            case 'user':
                 return 'blue'
             default:
                 return 'default'
@@ -272,12 +271,18 @@ const EmployeeManagement: React.FC = () => {
             key: 'role',
             width: 130,
             render: (role: string) => (
-                <Tag color={getRoleColor(role)}>{role}</Tag>
+                <Tag color={getRoleColor(role)}>
+                    {role === 'super_admin'
+                        ? 'Super Admin'
+                        : role === 'admin'
+                            ? 'Admin'
+                            : 'User'}
+                </Tag>
             ),
             filters: [
-                { text: 'Super Admin', value: 'Super Admin' },
-                { text: 'Admin', value: 'Admin' },
-                { text: 'User', value: 'User' },
+                { text: 'Super Admin', value: 'super_admin' },
+                { text: 'Admin', value: 'admin' },
+                { text: 'User', value: 'user' },
             ],
             onFilter: (value, record) => record.role === value,
         },
@@ -397,11 +402,12 @@ const EmployeeManagement: React.FC = () => {
                 employeeData={selectedEmployee}
                 onUpdate={handleUpdateEmployee}
                 onDelete={handleDeleteEmployee}
+                onAddSuccess={() => fetchUsers(pagination.current, pagination.pageSize)}
             />
             <EmployeeManagementAddUserModal
                 open={addModalOpen}
                 onClose={() => setAddModalOpen(false)}
-                onAdd={handleAddEmployee}
+                onAddSuccess={() => fetchUsers(pagination.current, pagination.pageSize)}
             />
         </div>
     )

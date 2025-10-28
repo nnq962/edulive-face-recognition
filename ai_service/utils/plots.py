@@ -6,7 +6,7 @@ import matplotlib
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
-from utils.general import CONFIG_DIR, check_font, check_requirements, is_ascii
+from ai_service.utils.general import CONFIG_DIR, check_font, check_requirements, is_ascii
 
 
 # Settings

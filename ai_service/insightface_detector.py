@@ -4,8 +4,8 @@ from insightface.model_zoo import model_zoo
 from pathlib import Path
 import time
 import numpy as np
-from utils.insightface_utils import crop_and_align_faces, normalize_embeddings, search_ids, crop_image
-from utils.plots import Annotator
+from ai_service.utils.insightface_utils import crop_and_align_faces, normalize_embeddings, search_ids, crop_image
+from ai_service.utils.plots import Annotator
 from utils import LOGGER
 from config import paths
 import threading
@@ -95,7 +95,7 @@ class InsightFaceDetector:
             self.save_crop = self.media_manager.save_crop
             self.needs_rendering = self.show or self.save or self.save_crop
         else:
-            raise ValueError("Media manager is required")
+            LOGGER.warning("Media manager is not provided, using default values")
 
         # Models
         self.det_model = None

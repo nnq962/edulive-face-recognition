@@ -2,17 +2,31 @@
 
 import os
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from backend.schemas.user import UserCreate
+from backend.schemas.user import UserCreate, UserUpdate, UserUpdateResponse
 from backend.models.user import UserModel
 from backend.utils.password import hash_password
 from backend.utils.pagination import PaginationParams
 from backend.utils.filters import UserFilterParams
+from backend.services.insightface import get_num_faces
 from utils import LOGGER
 import re
 from unidecode import unidecode
 from utils.common import normalize_mongo_doc
 from config import paths
 from bson import ObjectId
+from utils.time_helper import utc_now
+from typing import Optional
+from fastapi import HTTPException
+from PIL import Image
+import time
+import shutil
+import pillow_heif
+import os
+from pathlib import Path
+from typing import List
+from fastapi import UploadFile
+import asyncio
+
 
 
 USER_COLLECTION = "users"
@@ -157,18 +171,27 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
             department=user_data.department,
             telegram_username=user_data.telegram_username,
         )
-        
+
         # 6. Insert vào database
         result = await users_collection.insert_one(new_user.model_dump())
-                
+
         # 7. Lấy user vừa tạo
         created_user = await users_collection.find_one({"_id": result.inserted_id})
         created_user["_id"] = str(created_user["_id"])
+        data_directory = paths.USERS_DATA_DIR / created_user["_id"]
 
-        # 8. Tạo thư mục user data
-        user_dir = paths.USERS_DATA_DIR / created_user["_id"]
-        os.makedirs(user_dir, exist_ok=True)
-        LOGGER.info(f"Created user directory: {user_dir}")
+        # 8. Cập nhật data_directory vào user
+        await users_collection.update_one(
+            {"_id": ObjectId(created_user["_id"])},
+            {"$set": {"data_directory": str(data_directory)}},
+        )
+
+        # 9. Tạo thư mục user data
+        os.makedirs(data_directory, exist_ok=True)
+        LOGGER.info(f"Created user directory: {data_directory}")
+
+        # 10. Gắn thêm field vào object trả về
+        created_user["data_directory"] = str(data_directory)
 
         return created_user
         
@@ -260,7 +283,7 @@ async def delete_user(db: AsyncIOMotorDatabase, user_id: str) -> bool:
         # 2. Xóa user khỏi MongoDB
         result = await users_collection.delete_one({"_id": object_id})
 
-        # 3️⃣ Nếu xóa DB thành công → đổi tên thư mục data/<user_id> → data/<user_id>_deleted
+        # 3. Nếu xóa DB thành công → đổi tên thư mục data/<user_id> → data/<user_id>_deleted
         if result.deleted_count > 0:
             user_dir = paths.USERS_DATA_DIR / str(user_id)
             deleted_dir = paths.USERS_DATA_DIR / f"{user_id}_deleted"
@@ -290,3 +313,169 @@ async def delete_user(db: AsyncIOMotorDatabase, user_id: str) -> bool:
     except Exception as e:
         LOGGER.error(f"Error deleting user {user_id}: {e}")
         raise
+
+
+async def update_user(
+    db: AsyncIOMotorDatabase, 
+    user_id: str,  # <-- Thêm user_id làm tham số
+    payload: UserUpdate  # <-- Đổi tên user_data thành payload cho rõ nghĩa
+) -> Optional[UserUpdateResponse]:
+    """
+    Cập nhật thông tin user
+
+    Args:
+        db: Database instance
+        user_id: ID của user cần cập nhật (từ URL)
+        payload: Dữ liệu cập nhật user (từ body)
+
+    Returns:
+        UserUpdateResponse | None: User sau khi cập nhật, hoặc None nếu không tìm thấy
+    """
+    try:
+        users_collection = db[USER_COLLECTION]
+        
+        # SỬ DỤNG user_id TRỰC TIẾP
+        object_id = ObjectId(user_id) 
+
+        existing_user = await users_collection.find_one({"_id": object_id})
+        if not existing_user:
+            # SỬ DỤNG user_id
+            LOGGER.warning(f"User not found for update: {user_id}")
+            return None
+
+        # Chuẩn bị dữ liệu cập nhật
+        # Dùng `exclude_unset=True` là cách chuẩn của Pydantic để
+        # chỉ lấy các trường được client gửi lên (chuẩn cho PATCH)
+        # Sạch hơn nhiều so với list comprehension và k != "id"
+        update_fields = payload.model_dump(exclude_unset=True)
+
+        # Nếu không có trường nào được gửi lên để cập nhật
+        if not update_fields:
+            LOGGER.info(f"No update fields provided for user: {user_id}")
+            return None
+            # Bạn có thể return ngay ở đây nếu muốn
+            # Hoặc cứ chạy tiếp để cập nhật `updated_at`
+        
+        update_fields["updated_at"] = utc_now()
+
+        # Thực hiện update
+        await users_collection.update_one(
+            {"_id": object_id},
+            {"$set": update_fields}
+        )
+
+        # Lấy lại document sau khi cập nhật
+        updated_user = await users_collection.find_one({"_id": object_id})
+        if not updated_user:
+            return None
+
+        # (Phần map dữ liệu trả về giữ nguyên)
+        return UserUpdateResponse(
+            id=str(updated_user["_id"]),
+            username=updated_user["username"],
+            email=updated_user["email"],
+            full_name=updated_user["full_name"],
+            role=updated_user["role"],
+            position=updated_user["position"],
+            department=updated_user["department"],
+            telegram_username=updated_user.get("telegram_username"),
+            is_active=updated_user["is_active"],
+        )
+
+    except Exception as e:
+        # SỬ DỤNG user_id
+        LOGGER.error(f"Error updating user {user_id}: {e}")
+        raise
+
+
+async def upload_user_faces(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    files: List[UploadFile],
+):
+    """
+    Upload nhiều ảnh khuôn mặt cho user.
+    - Tự xử lý HEIC -> JPEG
+    - Kiểm tra số khuôn mặt
+    - Giữ lại ảnh hợp lệ (1 mặt), xóa ảnh sai
+    - Partial success: chỉ lưu ảnh hợp lệ
+    """
+
+    # 1. Kiểm tra user tồn tại
+    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 2. Kiểm tra data_directory
+    if not user.get("data_directory"):
+        raise HTTPException(status_code=500, detail="User has no data_directory")
+
+    user_dir = Path(user["data_directory"])
+    faces_dir = user_dir / "faces"
+    faces_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_files: List[str] = []
+    invalid_files: List[Dict[str, str]] = []
+
+    # 3. Duyệt qua từng ảnh
+    for file in files:
+        ext = Path(file.filename).suffix.lower()
+        timestamp = int(time.time() * 1000)
+        out_name = f"face_{timestamp}.jpg"
+        out_path = faces_dir / out_name
+
+        # ---- Convert HEIC nếu cần ----
+        try:
+            if ext in [".heic", ".heif"]:
+                if pillow_heif is None:
+                    raise HTTPException(status_code=500, detail="pillow-heif not installed")
+
+                heif_img = pillow_heif.open_heif(file.file)
+                image = Image.frombytes(heif_img.mode, heif_img.size, heif_img.data, "raw")
+                image.save(out_path, "JPEG")
+            else:
+                with open(out_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            invalid_files.append({"file": file.filename, "reason": f"Failed to save: {e}"})
+            if out_path.exists():
+                os.remove(out_path)
+            continue
+
+        # ---- Kiểm tra khuôn mặt ----
+        try:
+            num_faces, _ = await asyncio.to_thread(get_num_faces, str(out_path))
+        except Exception as e:
+            invalid_files.append({"file": file.filename, "reason": f"Error analyzing face: {e}"})
+            os.remove(out_path)
+            continue
+
+        if num_faces == 0:
+            invalid_files.append({"file": file.filename, "reason": "No face detected"})
+            os.remove(out_path)
+            continue
+        elif num_faces > 1:
+            invalid_files.append({"file": file.filename, "reason": f"Multiple faces detected ({num_faces} faces)"})
+            os.remove(out_path)
+            continue
+
+        # Hợp lệ: thêm vào danh sách
+        saved_files.append(f"faces/{out_name}")
+
+    # 4. Cập nhật DB nếu có ảnh hợp lệ
+    if saved_files:
+        await db["users"].update_one(
+            {"_id": ObjectId(user_id)},
+            {"$addToSet": {"photos_path": {"$each": saved_files}}},
+        )
+
+    # 5. Trả kết quả
+    return {
+        "photos_path": saved_files,
+        "invalid_files": invalid_files,
+        "meta": {
+            "valid_count": len(saved_files),
+            "invalid_count": len(invalid_files),
+            "total_uploaded": len(files),
+        },
+    }
