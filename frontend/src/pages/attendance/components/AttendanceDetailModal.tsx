@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { Modal, Descriptions, Image, Tabs, Form, Select, Input, Upload, Button, message, Card } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
+import { attendancesApi } from '@/api'
 
 const { TextArea } = Input
 const { Dragger } = Upload
@@ -21,6 +22,65 @@ interface AttendanceDetailModalProps {
 const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onClose, record }) => {
     const [bugForm] = Form.useForm()
     const [leaveForm] = Form.useForm()
+    
+    const [checkInImageUrl, setCheckInImageUrl] = useState<string | null>(null)
+    const [checkOutImageUrl, setCheckOutImageUrl] = useState<string | null>(null)
+    const [loadingCheckIn, setLoadingCheckIn] = useState(false)
+    const [loadingCheckOut, setLoadingCheckOut] = useState(false)
+
+    // Fetch ảnh check in
+    useEffect(() => {
+        if (!record || record.checkIn === '-') {
+            setCheckInImageUrl(null)
+            return
+        }
+        
+        const fetchCheckInImage = async () => {
+            try {
+                setLoadingCheckIn(true)
+                const url = await attendancesApi.getAttendanceImage(record.date, 'check_in')
+                setCheckInImageUrl(url)
+            } catch (error) {
+                console.error('Error loading check in image:', error)
+                setCheckInImageUrl(null)
+            } finally {
+                setLoadingCheckIn(false)
+            }
+        }
+        
+        fetchCheckInImage()
+    }, [record])
+
+    // Fetch ảnh check out
+    useEffect(() => {
+        if (!record || record.checkOut === '-') {
+            setCheckOutImageUrl(null)
+            return
+        }
+        
+        const fetchCheckOutImage = async () => {
+            try {
+                setLoadingCheckOut(true)
+                const url = await attendancesApi.getAttendanceImage(record.date, 'check_out')
+                setCheckOutImageUrl(url)
+            } catch (error) {
+                console.error('Error loading check out image:', error)
+                setCheckOutImageUrl(null)
+            } finally {
+                setLoadingCheckOut(false)
+            }
+        }
+        
+        fetchCheckOutImage()
+    }, [record])
+    
+    // Cleanup object URLs khi unmount
+    useEffect(() => {
+        return () => {
+            if (checkInImageUrl) URL.revokeObjectURL(checkInImageUrl)
+            if (checkOutImageUrl) URL.revokeObjectURL(checkOutImageUrl)
+        }
+    }, [checkInImageUrl, checkOutImageUrl])
 
     if (!record) return null
 
@@ -258,22 +318,34 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         }}>
                             Check in
                         </div>
-                        <div style={{
-                            fontSize: 13,
-                            color: '#666',
-                        }}>
-                        </div>
-                        <Image
-                            width={270}
-                            height={200}
-                            src="https://zos.alipayobjects.com/rmsportal/jkjgkEfvpUPVyRjUImniVslZfWPnJuuZ.png"
-                            alt="Check in"
-                            style={{
+                        {checkInImageUrl ? (
+                            <Image
+                                width={270}
+                                height={200}
+                                src={checkInImageUrl}
+                                alt="Check in"
+                                style={{
+                                    borderRadius: 8,
+                                    objectFit: 'cover',
+                                    border: '2px solid #e8e8e8'
+                                }}
+                                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                            />
+                        ) : (
+                            <div style={{
+                                width: 270,
+                                height: 200,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#f5f5f5',
                                 borderRadius: 8,
-                                objectFit: 'cover',
-                                border: '2px solid #e8e8e8'
-                            }}
-                        />
+                                border: '2px dashed #d9d9d9',
+                                color: '#999'
+                            }}>
+                                Không có ảnh
+                            </div>
+                        )}
                         {/* <Button
                             danger
                             size="small"
@@ -307,22 +379,34 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         }}>
                             Check out
                         </div>
-                        <div style={{
-                            fontSize: 13,
-                            color: '#666',
-                        }}>
-                        </div>
-                        <Image
-                            width={270}
-                            height={200}
-                            src="https://cellphones.com.vn/sforum/wp-content/uploads/2024/04/anh-chan-dung-2.jpg"
-                            alt="Check out"
-                            style={{
+                        {checkOutImageUrl ? (
+                            <Image
+                                width={270}
+                                height={200}
+                                src={checkOutImageUrl}
+                                alt="Check out"
+                                style={{
+                                    borderRadius: 8,
+                                    objectFit: 'cover',
+                                    border: '2px solid #e8e8e8'
+                                }}
+                                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                            />
+                        ) : (
+                            <div style={{
+                                width: 270,
+                                height: 200,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#f5f5f5',
                                 borderRadius: 8,
-                                objectFit: 'cover',
-                                border: '2px solid #e8e8e8'
-                            }}
-                        />
+                                border: '2px dashed #d9d9d9',
+                                color: '#999'
+                            }}>
+                                Không có ảnh
+                            </div>
+                        )}
                         {/* <Button
                             danger
                             size="small"

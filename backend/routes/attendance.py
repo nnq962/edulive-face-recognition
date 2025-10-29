@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
+from pathlib import Path
 
 from backend.schemas.attendance import AttendanceResponse
 from backend.schemas.common import ApiError, PaginatedResponse
 from backend.utils.pagination import PaginationParams
 from backend.services.attendance import get_user_attendances
 from config.dependencies import get_db, get_current_active_user
+from utils import LOGGER
 
 router = APIRouter(prefix="/api/attendances", tags=["Attendances"])
 
@@ -65,6 +68,7 @@ async def get_my_attendances(
     """
     
     try:
+        LOGGER.info(f"Current user: {current_user}")
         # Khởi tạo service
         user_id = current_user["id"]
         
@@ -91,4 +95,96 @@ async def get_my_attendances(
         )
 
 
-# ==================== Get Image from Attendance API ====================
+# ==================== View Image from Attendance API ====================
+@router.get(
+    "/me/{date}/images/{type}",
+    summary="Xem ảnh check in/out của user",
+    description="API để xem ảnh chấm công (check in hoặc check out) theo ngày",
+    responses={
+        200: {
+            "content": {"image/jpeg": {}},
+            "description": "Trả về file ảnh",
+        },
+        401: {
+            "model": ApiError,
+            "description": "Unauthorized",
+        },
+        404: {
+            "model": ApiError,
+            "description": "Image not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def get_attendance_image(
+    date: str,
+    type: Literal["check_in", "check_out"],
+    current_user: dict = Depends(get_current_active_user),
+):
+    """
+    Xem ảnh chấm công của user hiện tại
+    
+    **Parameters:**
+    - date: Ngày cần xem (YYYY-MM-DD) - path parameter
+    - type: Loại ảnh (check_in hoặc check_out) - path parameter
+    
+    **Returns:**
+    - File ảnh (JPEG)
+    
+    **Example:**
+    - GET /api/attendances/me/2025-10-01/images/check_in
+    - GET /api/attendances/me/2025-10-01/images/check_out
+    """
+    
+    try:
+        # Lấy data_directory từ current_user
+        data_directory = current_user.get("data_directory")
+        if not data_directory:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User data directory not found"
+            )
+        
+        # Xác định tên file dựa vào type
+        image_filename = f"{type}.jpg"
+        
+        # Tạo đường dẫn đến file ảnh
+        # Format: {data_directory}/attendances/{date}/{type}.jpg
+        image_path = Path(data_directory) / "attendances" / date / image_filename
+        
+        LOGGER.info(f"Attempting to serve image: {image_path}")
+        
+        # Kiểm tra file có tồn tại không
+        if not image_path.exists():
+            LOGGER.warning(f"Image not found: {image_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Image not found for date {date} and type {type}"
+            )
+        
+        # Kiểm tra file có phải là file (không phải folder)
+        if not image_path.is_file():
+            LOGGER.warning(f"Path is not a file: {image_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Invalid image path"
+            )
+        
+        # Trả về file ảnh
+        return FileResponse(
+            path=str(image_path),
+            media_type="image/jpeg",
+            filename=image_filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        LOGGER.error(f"Error serving image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error serving image: {str(e)}"
+        )
