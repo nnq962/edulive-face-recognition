@@ -4,10 +4,10 @@ import os
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.schemas.user import UserCreate, UserUpdate, UserUpdateResponse
 from backend.models.user import UserModel
-from backend.utils.password import hash_password
+from backend.utils.password import hash_password, verify_password
 from backend.utils.pagination import PaginationParams
 from backend.utils.filters import UserFilterParams
-from backend.services.insightface import get_num_faces
+from backend.services.insightface import detect_faces, get_face_embeddings
 from utils import LOGGER
 import re
 from unidecode import unidecode
@@ -20,9 +20,10 @@ import time
 import shutil
 import pillow_heif
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from fastapi import UploadFile, HTTPException
 import asyncio
+import numpy as np
 
 
 
@@ -393,17 +394,16 @@ async def upload_user_faces(
     """
     Upload nhiều ảnh khuôn mặt cho user.
     - Tự xử lý HEIC -> JPEG
-    - Kiểm tra số khuôn mặt
-    - Giữ lại ảnh hợp lệ (1 mặt), xóa ảnh sai
+    - Kiểm tra số khuôn mặt (chỉ chấp nhận 1)
+    - Lưu embeddings theo dạng [{path, embedding}]
     - Partial success: chỉ lưu ảnh hợp lệ
     """
 
-    # 1. Kiểm tra user tồn tại
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    # 1. Kiểm tra user
+    user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 2. Kiểm tra data_directory
     if not user.get("data_directory"):
         raise HTTPException(status_code=500, detail="User has no data_directory")
 
@@ -412,16 +412,18 @@ async def upload_user_faces(
     faces_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files: List[str] = []
+    valid_images: List[np.ndarray] = []
+    valid_detections: List[Tuple[np.ndarray, np.ndarray]] = []
     invalid_files: List[Dict[str, str]] = []
 
-    # 3. Duyệt qua từng ảnh
+    # 2. Lưu từng ảnh và kiểm tra hợp lệ
     for file in files:
         ext = Path(file.filename).suffix.lower()
         timestamp = int(time.time() * 1000)
         out_name = f"face_{timestamp}.jpg"
         out_path = faces_dir / out_name
 
-        # ---- Convert HEIC nếu cần ----
+        # --- Save or convert file ---
         try:
             if ext in [".heic", ".heif"]:
                 if pillow_heif is None:
@@ -439,9 +441,9 @@ async def upload_user_faces(
                 os.remove(out_path)
             continue
 
-        # ---- Kiểm tra khuôn mặt ----
+        # --- Detect face ---
         try:
-            num_faces, _ = await asyncio.to_thread(get_num_faces, str(out_path))
+            image, detection_results, _, num_faces = await asyncio.to_thread(detect_faces, str(out_path))
         except Exception as e:
             invalid_files.append({"file": file.filename, "reason": f"Error analyzing face: {e}"})
             os.remove(out_path)
@@ -452,21 +454,38 @@ async def upload_user_faces(
             os.remove(out_path)
             continue
         elif num_faces > 1:
-            invalid_files.append({"file": file.filename, "reason": f"Multiple faces detected ({num_faces} faces)"})
+            invalid_files.append({"file": file.filename, "reason": f"Multiple faces detected ({num_faces})"})
             os.remove(out_path)
             continue
 
-        # Hợp lệ: thêm vào danh sách
-        saved_files.append(f"{out_name}")
+        # --- Hợp lệ ---
+        saved_files.append(out_name)
+        valid_images.append(image)
+        valid_detections.append(detection_results[0])  # chỉ tuple (bboxes, keypoints)
 
-    # 4. Cập nhật DB nếu có ảnh hợp lệ
-    if saved_files:
-        await db["users"].update_one(
+    # 3. Lấy embeddings (nếu có ảnh hợp lệ)
+    face_embeds_data = []
+    if valid_images:
+        embeddings = await asyncio.to_thread(get_face_embeddings, valid_images, valid_detections)
+
+        for name, emb in zip(saved_files, embeddings):
+            face_embeds_data.append({
+                "path": name,
+                "embedding": emb.tolist()
+            })
+
+        LOGGER.info(f"Generated embeddings for {len(face_embeds_data)} faces, shape: {embeddings.shape}")
+
+        # --- Cập nhật DB ---
+        await db[USER_COLLECTION].update_one(
             {"_id": ObjectId(user_id)},
-            {"$addToSet": {"photos_path": {"$each": saved_files}}},
+            {
+                "$addToSet": {"photos_path": {"$each": saved_files}},
+                "$push": {"face_embeddings": {"$each": face_embeds_data}},
+            },
         )
 
-    # 5. Trả kết quả
+    #  Trả response
     return {
         "photos_path": saved_files,
         "invalid_files": invalid_files,
@@ -476,3 +495,41 @@ async def upload_user_faces(
             "total_uploaded": len(files),
         },
     }
+
+
+async def change_user_password(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    current_password: str,
+    new_password: str,
+) -> bool:
+    """
+    Đổi mật khẩu cho user hiện tại.
+    - Kiểm tra mật khẩu cũ có khớp không
+    - Hash mật khẩu mới
+    - Cập nhật DB
+    """
+    users_collection = db[USER_COLLECTION]
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Kiểm tra mật khẩu cũ
+    if not verify_password(current_password, user["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    # Kiểm tra độ dài mật khẩu mới
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+
+    # Hash mật khẩu mới
+    hashed = hash_password(new_password)
+
+    # Cập nhật DB
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password": hashed}}
+    )
+
+    return True

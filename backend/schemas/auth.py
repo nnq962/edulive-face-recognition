@@ -44,3 +44,4 @@ class GetMeResponse(BaseModel):
     position: str = Field(..., example="position")
     department: str = Field(..., example="department")
     telegram_username: Optional[str] = Field(default=None, example="telegram_username")
+    is_active: bool = Field(..., example=True)

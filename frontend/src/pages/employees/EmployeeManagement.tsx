@@ -232,7 +232,7 @@ const EmployeeManagement: React.FC = () => {
             case 'active':
                 return 'green'
             case 'inactive':
-                return 'default'
+                return 'red'
             default:
                 return 'default'
         }

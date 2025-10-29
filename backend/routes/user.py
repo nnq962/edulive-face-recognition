@@ -6,20 +6,24 @@ from fastapi.responses import FileResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 
-from backend.schemas.user import UserCreate, UserCreateResponse, UserUpdate, UserUpdateResponse
+from backend.schemas.user import UserCreate, UserCreateResponse, UserUpdate, UserUpdateResponse, UpdateTelegram, ChangePassword
 from backend.schemas.common import ApiResponse, ApiError, PaginatedResponse, ApiResponseWithMeta
-from backend.services.user import create_user, fetch_users_with_pagination, delete_user, update_user, upload_user_faces
+from backend.services.user import create_user, fetch_users_with_pagination, delete_user, update_user, upload_user_faces, change_user_password
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 from backend.utils.filters import UserFilterParams
-from config.dependencies import get_db, require_admin
+from backend.services.insightface import rebuild_faiss_index
+from config.dependencies import get_db, require_admin, get_current_active_user
 from backend.utils.permissions import ensure_can_manage
 from typing import Optional, Literal
 from utils.logger import LOGGER
 from typing import List
 from pathlib import Path
+import asyncio
+from fastapi import BackgroundTasks
 
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
+USER_COLLECTION = "users"
 
 # ==================== Create User API ====================
 @router.post(
@@ -202,7 +206,7 @@ async def delete_user_by_id(
         )
     
     # Lấy thông tin user sắp xóa để kiểm tra quyền
-    users_collection = db["users"]
+    users_collection = db[USER_COLLECTION]
     
     try:
         target_user_id = ObjectId(user_id)
@@ -229,6 +233,10 @@ async def delete_user_by_id(
             detail="User not found"
         )
     
+    # Rebuild FAISS index
+    LOGGER.info(f"Rebuilding FAISS index because user {user_id} deleted")
+    asyncio.create_task(rebuild_faiss_index(db))
+
     return ApiResponse[None](
         success=True,
         message=f"Successfully deleted user {user_id}",
@@ -269,14 +277,9 @@ async def update_user_route(
     """
 
     # 1. Lấy thông tin user hiện tại từ DB
-    target_user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    target_user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    LOGGER.info(f"Current user: {current_user}")
-    LOGGER.info(f"Target user (before update): {target_user}")
-    LOGGER.info(f"Payload: {payload}")
-    LOGGER.info(f"User ID: {user_id}")
 
     # 2. Check quyền trên role cũ
     ensure_can_manage(
@@ -299,6 +302,11 @@ async def update_user_route(
         raise HTTPException(status_code=404, detail="User not found after update")
 
     LOGGER.info(f"User updated successfully: {updated}")
+
+    # Rebuild FAISS index nếu thay đổi full_name hoặc is_active
+    if payload.full_name is not None or payload.is_active is not None:
+        LOGGER.info(f"Rebuilding FAISS index because full_name or is_active changed")
+        asyncio.create_task(rebuild_faiss_index(db))
 
     return ApiResponse[UserUpdateResponse](
         success=True,
@@ -329,6 +337,7 @@ async def update_user_route(
 )
 async def upload_user_faces_route(
     user_id: str,
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user: dict = Depends(require_admin),
@@ -339,7 +348,7 @@ async def upload_user_faces_route(
         - Bỏ qua ảnh không hợp lệ
     """
     # 1. Lấy thông tin user hiện tại từ DB
-    target_user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    target_user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -348,6 +357,10 @@ async def upload_user_faces_route(
 
     # 3. Upload ảnh khuôn mặt
     result = await upload_user_faces(db, user_id, files)
+
+    # 4. Rebuild FAISS index
+    LOGGER.info(f"Rebuilding FAISS index because user {user_id} uploaded faces")
+    asyncio.create_task(rebuild_faiss_index(db))
 
     return ApiResponseWithMeta[List[str]](
         success=True if result["meta"]["valid_count"] > 0 else False,
@@ -394,7 +407,7 @@ async def get_user_faces_route(
     Lấy danh sách ảnh khuôn mặt của user.
     """
     # 1. Kiểm tra user tồn tại
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -421,7 +434,7 @@ async def view_user_faces_route(
     Xem ảnh khuôn mặt của user.
     """
     # 1. Kiểm tra user
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -467,35 +480,158 @@ async def delete_user_faces_route(
 ):
     """
     Xóa 1 ảnh khuôn mặt của user.
+    - Xóa file vật lý
+    - Xóa khỏi photos_path
+    - Xóa embedding tương ứng trong face_embeddings
     """
+
     # 1. Kiểm tra user tồn tại
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    user = await db[USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # 2. Tìm file path
+    # 2. Check quyền (nếu cần)
+    ensure_can_manage(current_user["role"], user["role"], action="delete user face image")
+
+    # 3. Xác định file path
     faces_dir = Path(user["data_directory"]) / "faces"
     file_path = faces_dir / filename
 
-    # 3. Kiểm tra file tồn tại
+    # 4. Kiểm tra file tồn tại
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Face image not found")
+        raise HTTPException(status_code=404, detail=f"Face image '{filename}' not found")
 
     try:
-        # 4. Xóa file vật lý
+        # 5. Xóa file vật lý
         os.remove(file_path)
+        LOGGER.info(f"Deleted face image: {file_path}")
 
-        # 5. Xóa khỏi DB (nếu có trong danh sách)
-        await db["users"].update_one(
+        # 6. Xóa khỏi DB (photos_path + face_embeddings)
+        update_result = await db[USER_COLLECTION].update_one(
             {"_id": ObjectId(user_id)},
-            {"$pull": {"photos_path": f"{filename}"}},
+            {
+                "$pull": {
+                    "photos_path": filename,
+                    "face_embeddings": {"path": filename},  # xóa embedding tương ứng
+                }
+            },
         )
 
+        # 7. Rebuild FAISS index
+        LOGGER.info(f"Rebuilding FAISS index because user {user_id} deleted face image {filename}")
+        asyncio.create_task(rebuild_faiss_index(db))
+
+        if update_result.modified_count == 0:
+            LOGGER.warning(f"No DB entries updated for {filename} (user {user_id})")
+
+        # 8. Trả response
         return ApiResponse[None](
             success=True,
-            message=f"Face image '{filename}' deleted successfully",
+            message=f"Face image '{filename}' and its embedding deleted successfully",
             data=None,
         )
 
     except Exception as e:
+        LOGGER.error(f"Error deleting face image {filename} for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete image: {e}")
+
+
+# ==================== Change Telegram Username API ====================
+@router.patch(
+    "/me/telegram",
+    response_model=ApiResponse[None],
+    response_model_exclude_none=True,
+    responses={
+        401: {
+            "model": ApiError,
+            "description": "Unauthorized",
+        },
+        400: {
+            "model": ApiError,
+            "description": "Bad Request (validation / business rule)",
+        },
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+    },
+)
+async def update_my_telegram_username(
+    payload: UpdateTelegram,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(get_current_active_user),  # không require_admin
+):
+    """
+    Cập nhật telegram username cho chính user đang đăng nhập.
+    """
+
+    new_username = payload.telegram_username.strip()
+    if not new_username:
+        raise HTTPException(status_code=400, detail="Telegram username is required")
+
+    LOGGER.info(f"Current user: {current_user}")
+    LOGGER.info(f"Payload: {payload}")
+
+    result = await db[USER_COLLECTION].update_one(
+        {"_id": ObjectId(current_user["id"])},
+        {"$set": {"telegram_username": new_username}},
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="No changes were made")
+
+    LOGGER.info(f"User {current_user['id']} updated telegram username to {new_username}")
+
+    return ApiResponse[None](
+        success=True,
+        message="Telegram username updated successfully",
+        data=None,
+    )
+
+
+# ==================== Change Password API ====================
+@router.patch(
+    "/me/password",
+    response_model=ApiResponse[None],
+    response_model_exclude_none=True,
+    responses={
+        401: {
+            "model": ApiError,
+            "description": "Unauthorized",
+        },
+        400: {
+            "model": ApiError,
+            "description": "Bad Request (validation / business rule)",
+        },
+        403: {
+            "model": ApiError,
+            "description": "Forbidden (requires admin privileges)",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def change_my_password_route(
+    payload: ChangePassword,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(get_current_active_user),
+):
+    """
+    Cho phép user hiện tại tự đổi mật khẩu.
+    """
+    LOGGER.info(f"Payload: {payload}")
+
+    await change_user_password(
+        db=db,
+        user_id=str(current_user["id"]),
+        current_password=payload.current_password,
+        new_password=payload.new_password,
+    )
+
+    return ApiResponse[None](
+        success=True,
+        message="Password updated successfully",
+        data=None,
+    )

@@ -1,37 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, Space, message, Divider, Tag, Descriptions, Row, Col } from 'antd';
-import { UserOutlined, MailOutlined, LockOutlined, SaveOutlined } from '@ant-design/icons';
+import { LockOutlined, SaveOutlined } from '@ant-design/icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { settingsApi } from '@/api';
 
 const Settings: React.FC = () => {
+    const { user, setUser } = useAuth(); // Lấy user từ AuthContext
     const [profileForm] = Form.useForm();
     const [passwordForm] = Form.useForm();
     const [loadingProfile, setLoadingProfile] = useState(false);
     const [loadingPassword, setLoadingPassword] = useState(false);
 
-    // Mock data - Trong thực tế sẽ fetch từ API
-    const userData = {
-        employeeName: 'Nguyễn Văn A',
-        role: 'Admin',
-        position: 'Dev AI',
-        department: 'Tầng 2',
-        status: 'active',
-        email: 'nguyenvana@example.com',
-        telegram: 'nguyenvana',
+    // Load user data vào form khi component mount
+    useEffect(() => {
+        if (user) {
+            profileForm.setFieldsValue({
+                telegram: user.telegram_username || '',
+            });
+        }
+    }, [user, profileForm]);
+
+
+
+    // Hiển thị vai trò theo tiếng Việt
+    const getRoleDisplay = (role?: string) => {
+        switch (role) {
+            case 'super_admin':
+                return 'Super Admin';
+            case 'admin':
+                return 'Admin';
+            case 'user':
+                return 'User';
+            default:
+                return role || 'Không xác định';
+        }
     };
 
     const handleUpdateProfile = async () => {
+        if (!user) return;
+
         try {
             const values = await profileForm.validateFields();
             setLoadingProfile(true);
 
-            // Simulate API call
-            setTimeout(() => {
-                console.log('Updated profile:', values);
-                message.success('Cập nhật thông tin thành công!');
-                setLoadingProfile(false);
-            }, 1000);
-        } catch (error) {
-            console.error('Validation failed:', error);
+            // Gọi API cập nhật Telegram username
+            await settingsApi.updateTelegramUsername(values.telegram);
+
+            // Cập nhật user trong context
+            setUser({
+                ...user,
+                telegram_username: values.telegram,
+            });
+
+            message.success('Cập nhật thông tin thành công!');
+        } catch (error: any) {
+            console.error('Lỗi khi cập nhật thông tin:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi cập nhật thông tin';
+            message.error(errorMessage);
+        } finally {
+            setLoadingProfile(false);
         }
     };
 
@@ -40,17 +69,33 @@ const Settings: React.FC = () => {
             const values = await passwordForm.validateFields();
             setLoadingPassword(true);
 
-            // Simulate API call
-            setTimeout(() => {
-                console.log('Changed password');
-                message.success('Đổi mật khẩu thành công!');
-                passwordForm.resetFields();
-                setLoadingPassword(false);
-            }, 1000);
-        } catch (error) {
-            console.error('Validation failed:', error);
+            // Gọi API đổi mật khẩu
+            await settingsApi.changePassword({
+                current_password: values.currentPassword,
+                new_password: values.newPassword,
+            });
+
+            message.success('Đổi mật khẩu thành công!');
+            passwordForm.resetFields();
+        } catch (error: any) {
+            console.error('Lỗi khi đổi mật khẩu:', error);
+            const errorMessage = error.response?.data?.detail || 
+                                error.response?.data?.message || 
+                                'Lỗi khi đổi mật khẩu';
+            message.error(errorMessage);
+        } finally {
+            setLoadingPassword(false);
         }
     };
+
+    // Nếu chưa có user data (vẫn đang loading)
+    if (!user) {
+        return (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+                Đang tải thông tin...
+            </div>
+        );
+    }
 
     return (
         <Row gutter={[8, 8]}>
@@ -77,20 +122,23 @@ const Settings: React.FC = () => {
                          }}
                     >
                         <Descriptions.Item label="Tên nhân viên">
-                            <strong>{userData.employeeName}</strong>
+                            <strong>{user.full_name || user.username}</strong>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Email">
+                            {user.email || 'Chưa có'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Vai trò">
-                            <Tag color="blue">{userData.role}</Tag>
+                            <Tag color="blue">{getRoleDisplay(user.role)}</Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Chức vụ">
-                            {userData.position}
+                            {user.position || 'Chưa có'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Phòng ban">
-                            {userData.department}
+                            {user.department || 'Chưa có'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Trạng thái">
-                            <Tag color={userData.status === 'active' ? 'green' : 'red'}>
-                                {userData.status === 'active' ? 'Hoạt động' : 'Đã nghỉ'}
+                            <Tag color={user.is_active ? 'green' : 'red'}>
+                                {user.is_active ? 'Hoạt động' : 'Đã nghỉ'}
                             </Tag>
                         </Descriptions.Item>
                     </Descriptions>
@@ -112,25 +160,7 @@ const Settings: React.FC = () => {
                     <Form
                         form={profileForm}
                         layout="vertical"
-                        initialValues={{
-                            email: userData.email,
-                            telegram: userData.telegram,
-                        }}
                     >
-                        <Form.Item
-                            name="email"
-                            label="Email"
-                            rules={[
-                                { type: 'email', message: 'Email không hợp lệ!' },
-                                { required: true, message: 'Vui lòng nhập email!' }
-                            ]}
-                        >
-                            <Input
-                                prefix={<MailOutlined />}
-                                placeholder="Nhập email"
-                            />
-                        </Form.Item>
-
                         <Form.Item
                             name="telegram"
                             label="Telegram"
@@ -254,24 +284,6 @@ const Settings: React.FC = () => {
                             </Space>
                         </Form.Item>
                     </Form>
-
-                    <div style={{
-                        marginTop: '8px',
-                        padding: '8px',
-                        background: '#fff7e6',
-                        border: '1px solid #ffd591',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: '#ad6800'
-                    }}>
-                        <strong>Yêu cầu mật khẩu:</strong>
-                        <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', }}>
-                            <li>Ít nhất 8 ký tự</li>
-                            <li>Chứa ít nhất 1 chữ hoa (A-Z)</li>
-                            <li>Chứa ít nhất 1 chữ thường (a-z)</li>
-                            <li>Chứa ít nhất 1 chữ số (0-9)</li>
-                        </ul>
-                    </div>
                 </Card>
             </Col>
         </Row>

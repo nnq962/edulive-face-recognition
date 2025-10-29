@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.schemas.auth import LoginRequest, LoginResponse
 from backend.schemas.common import ApiResponse, ApiError
 from backend.services.auth import authenticate_user, refresh_access_token
-from config.dependencies import get_db, get_current_user
+from config.dependencies import get_db, get_current_active_user
 from backend.utils.jwt import create_access_token, create_refresh_token
 from backend.schemas.auth import RefreshRequest, RefreshResponse, GetMeResponse
 from utils import LOGGER
@@ -92,7 +92,8 @@ async def refresh_token(request: RefreshRequest):
         403: {"model": ApiError, "description": "Forbidden"},
     },
 )
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_current_active_user)):
+    LOGGER.info(f"Current user: {current_user}")
     return ApiResponse(
         success=True,
         message="User info",

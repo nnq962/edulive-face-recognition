@@ -10,7 +10,7 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def hash_password(password: str) -> str:
     """
-    Hash password bằng bcrypt
+    Hash password bằng Argon2
     
     Args:
         password: Plain text password

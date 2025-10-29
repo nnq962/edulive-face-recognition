@@ -32,13 +32,17 @@ const Login: React.FC = () => {
         const userResponse = await authApi.getMe();
         const userData = userResponse.data.data;
         
-        // Lưu user vào Context
+        // Lưu user vào Context (ĐẦY ĐỦ fields)
         setUser({
           id: userData.id,
           username: userData.username,
           email: userData.email,
           role: userData.role,
           full_name: userData.full_name,
+          telegram_username: userData.telegram_username,
+          position: userData.position,
+          department: userData.department,
+          is_active: userData.is_active,
         });
       } catch (userError) {
         console.error('Lỗi khi lấy thông tin user:', userError);

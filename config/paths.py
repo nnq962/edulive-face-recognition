@@ -15,8 +15,6 @@ class PathConfig(BaseConfig):
     MODEL_DIR: Path = AI_SERVICE_DIR / "ai_models"
     DATA_DIR: Path = AI_SERVICE_DIR / "data"
     FAISS_DIR: Path = DATA_DIR / "faiss"
-    FAISS_TEST_DIR: Path = DATA_DIR / "faiss" / "test"
-    FAISS_PRODUCTION_DIR: Path = DATA_DIR / "faiss" / "production"
     
     # Model URLs
     MODEL_RETINAFACE_URL: str
@@ -25,10 +23,8 @@ class PathConfig(BaseConfig):
     # Model paths
     DET_MODEL_PATH: str = str(MODEL_DIR / "retinaface.onnx")
     REC_MODEL_PATH: str = str(MODEL_DIR / "arcface.onnx")
-    FAISS_FILE_PATH: str = str(FAISS_PRODUCTION_DIR / "face_index.faiss")
-    FAISS_MAPPING_FILE_PATH: str = str(FAISS_PRODUCTION_DIR / "faiss_mapping.pkl")
-    FAISS_TEST_FILE_PATH: str = str(FAISS_TEST_DIR / "face_index.faiss")
-    FAISS_TEST_MAPPING_FILE_PATH: str = str(FAISS_TEST_DIR / "faiss_mapping.pkl")
+    FAISS_FILE_PATH: str = str(FAISS_DIR / "face_index.faiss")
+    FAISS_MAPPING_FILE_PATH: str = str(FAISS_DIR / "faiss_mapping.pkl")
 
     # Backend paths
     USERS_DATA_PATH: str

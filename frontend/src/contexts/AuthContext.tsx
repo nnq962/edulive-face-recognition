@@ -10,6 +10,10 @@ interface User {
     email: string;
     role: UserRole;
     full_name?: string;
+    telegram_username?: string; // Thêm field này
+    position?: string;
+    department?: string;
+    is_active?: boolean;
 }
 
 // Định nghĩa kiểu dữ liệu cho Context
@@ -56,6 +60,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         email: userData.email,
                         role: userData.role,
                         full_name: userData.full_name,
+                        telegram_username: userData.telegram_username,
+                        position: userData.position,
+                        department: userData.department,
+                        is_active: userData.is_active,
                     });
                 }
             } catch (error) {

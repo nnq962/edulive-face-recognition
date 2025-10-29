@@ -47,7 +47,10 @@ async def get_current_user(
             raise HTTPException(status_code=401, detail="Invalid token payload")
 
         users_collection = db["users"]
-        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        user = await users_collection.find_one(
+            {"_id": ObjectId(user_id)},
+            {"face_embeddings": 0}
+        )
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
 

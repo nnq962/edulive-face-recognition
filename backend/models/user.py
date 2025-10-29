@@ -7,6 +7,11 @@ from datetime import datetime
 
 # ==================== Database Models ====================
 
+class FaceEmbedding(BaseModel):
+    path: str
+    embedding: List[float]
+
+
 class UserModel(BaseModel):
     """
     User model trong database (MongoDB document)
@@ -34,7 +39,7 @@ class UserModel(BaseModel):
     # Additional
     data_directory: Optional[str] = Field(default=None)
     photos_path: List[str] = Field(default_factory=list)
-    face_embeddings: Optional[List[float]] = Field(default=None)
+    face_embeddings: List[FaceEmbedding] = Field(default_factory=list)
     
     # Timestamps
     created_at: datetime = Field(default_factory=utc_now)

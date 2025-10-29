@@ -32,6 +32,19 @@ class UserUpdate(BaseModel):
     telegram_username: Optional[str] = Field(default=None, example="quyetnn", max_length=50)
     is_active: Optional[bool] = Field(default=None, example=True)
 
+class UpdateTelegram(BaseModel):
+    """
+    Schema để CẬP NHẬT telegram username
+    """
+    telegram_username: str = Field(..., example="quyetnn", max_length=50)
+
+class ChangePassword(BaseModel):
+    """
+    Schema để THAY ĐỔI MẬT KHẨU
+    """
+    current_password: str = Field(..., min_length=6, max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
+
 
 # ==================== Response Schemas ====================
 class UserCreateResponse(BaseModel):
