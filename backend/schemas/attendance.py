@@ -1,0 +1,30 @@
+from datetime import datetime
+from pydantic import BaseModel, Field, field_serializer
+
+class TimestampSchema(BaseModel):
+    time: datetime = Field(..., example="2025-10-01T10:53:02Z")
+    camera_id: str = Field(..., example="CAM6")
+    
+    @field_serializer('time')
+    def serialize_time(self, dt: datetime, _info):
+        """Serialize datetime to ISO format with Z suffix"""
+        if dt:
+            return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return None
+
+class AttendanceResponse(BaseModel):
+    id: str = Field(..., example="69009a95f8f19decdd27172a")
+    full_name: str = Field(..., example="Nguyễn Ngọc Quyết")
+    date: datetime = Field(..., example="2025-10-01T00:00:00Z")
+    check_in_time: datetime = Field(..., example="2025-10-01T00:52:54Z")
+    check_out_time: datetime = Field(..., example="2025-10-01T10:53:02Z")
+    last_timestamp: TimestampSchema = Field(
+        ..., example={"time": "2025-10-01T10:53:02Z", "camera_id": "CAM6"}
+    )
+    
+    @field_serializer('date', 'check_in_time', 'check_out_time')
+    def serialize_datetime(self, dt: datetime, _info):
+        """Serialize datetime to ISO format with Z suffix"""
+        if dt:
+            return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return None

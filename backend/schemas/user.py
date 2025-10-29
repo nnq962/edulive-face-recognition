@@ -59,7 +59,7 @@ class UserCreateResponse(BaseModel):
     position: str = Field(..., example="Developer")
     department: str = Field(..., example="AI Center")
     data_directory: str = Field(..., example="/data/users/666666666666666666666666")
-    photos_path: List[str] = Field(default_factory=list, example=["/data/users/666666666666666666666666/photos/photo1.jpg", "/data/users/666666666666666666666666/photos/photo2.jpg"])
+    face_image_filenames: List[str] = Field(default_factory=list, example=["/data/users/666666666666666666666666/photos/photo1.jpg", "/data/users/666666666666666666666666/photos/photo2.jpg"])
     telegram_username: Optional[str] = Field(default=None, example="quyetnn")
     is_active: bool = Field(..., example=True)
 

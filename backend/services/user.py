@@ -480,14 +480,14 @@ async def upload_user_faces(
         await db[USER_COLLECTION].update_one(
             {"_id": ObjectId(user_id)},
             {
-                "$addToSet": {"photos_path": {"$each": saved_files}},
+                "$addToSet": {"face_image_filenames": {"$each": saved_files}},
                 "$push": {"face_embeddings": {"$each": face_embeds_data}},
             },
         )
 
     #  Trả response
     return {
-        "photos_path": saved_files,
+        "face_image_filenames": saved_files,
         "invalid_files": invalid_files,
         "meta": {
             "valid_count": len(saved_files),

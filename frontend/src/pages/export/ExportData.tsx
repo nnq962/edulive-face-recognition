@@ -19,7 +19,10 @@ interface ExportDataRecord {
   note: string[]
 }
 
-const { RangePicker } = DatePicker;
+const isWeekend = (date: string) => {
+  const weekday = dayjs(date).day()
+  return weekday === 0 || weekday === 6
+}
 
 const ExportData: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs())
@@ -259,8 +262,44 @@ const ExportData: React.FC = () => {
       dataIndex: 'date',
       key: 'date',
       width: 115,
-      sorter: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    },
+      onCell: (record) => {
+        const weekend = isWeekend(record.date)
+        return {
+          style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
+        }
+      },
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
+        <div style={{ padding: 8 }}>
+          <DatePicker
+            value={selectedKeys[0] ? dayjs(selectedKeys[0] as string) : null}
+            onChange={(date) => {
+              setSelectedKeys(date ? [date.format('YYYY-MM-DD')] : [])
+            }}
+            format="YYYY-MM-DD"
+            style={{ width: '100%', marginBottom: 8, display: 'block' }}
+          />
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Button
+              onClick={() => {
+                if (clearFilters) {
+                  clearFilters()
+                }
+              }}
+              size="small"
+              type="link"
+            >
+              Reset
+            </Button>
+            <Button
+              type="primary"
+              onClick={() => confirm()}
+              size="small"
+            >
+              OK
+            </Button>
+          </Space>
+        </div>
+    )},
     {
       title: 'Check in',
       dataIndex: 'checkIn',
@@ -344,9 +383,9 @@ const ExportData: React.FC = () => {
           showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} bản ghi`, // Hiển thị tổng số
           pageSizeOptions: ['10', '20', '50', '100'], // Các option cho dropdown
           style: {
-              paddingRight: '8px',
+            paddingRight: '8px',
           },
-      }}
+        }}
         scroll={{ x: 900 }}
         bordered
         title={() => (
@@ -372,10 +411,12 @@ const ExportData: React.FC = () => {
               gap: 8,
               flexWrap: 'wrap'
             }}>
-              <RangePicker
+              <DatePicker
+                picker="month"
                 allowClear={false}
-                style={{ width: 230, minWidth: 200 }}
-                placeholder={['Từ ngày', 'Đến ngày']}
+                value={selectedMonth}
+                format="YYYY-MM"
+                style={{ width: 105 }}
               />
               <Button type="primary" loading={loadings[0]} onClick={() => enterLoading(0)}>
                 Làm mới

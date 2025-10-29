@@ -38,7 +38,7 @@ class UserModel(BaseModel):
     
     # Additional
     data_directory: Optional[str] = Field(default=None)
-    photos_path: List[str] = Field(default_factory=list)
+    face_image_filenames: List[str] = Field(default_factory=list)
     face_embeddings: List[FaceEmbedding] = Field(default_factory=list)
     
     # Timestamps

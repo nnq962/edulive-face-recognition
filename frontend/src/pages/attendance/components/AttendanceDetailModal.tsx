@@ -193,7 +193,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
             }}
             centered
         >
-            <Card
+            {/* <Card
                 title="Thông tin chấm công"
                 style={{
                     marginBottom: 8,
@@ -225,7 +225,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         </span>
                     </Descriptions.Item>
                 </Descriptions>
-            </Card>
+            </Card> */}
 
             <Card
                 title="Ảnh chấm công"

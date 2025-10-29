@@ -368,7 +368,7 @@ async def upload_user_faces_route(
             f"Uploaded {result['meta']['valid_count']} valid and "
             f"{result['meta']['invalid_count']} invalid face image(s)"
         ),
-        data=result["photos_path"],
+        data=result["face_image_filenames"],
         meta={
             "valid_count": result["meta"]["valid_count"],
             "invalid_count": result["meta"]["invalid_count"],
@@ -411,12 +411,12 @@ async def get_user_faces_route(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    photos_path = user.get("photos_path", [])
+    face_image_filenames = user.get("face_image_filenames", [])
 
     return ApiResponse[List[str]](
         success=True,
-        message=f"Found {len(photos_path)} face image(s)",
-        data=photos_path,
+        message=f"Found {len(face_image_filenames)} face image(s)",
+        data=face_image_filenames,
     )
 
 
@@ -481,7 +481,7 @@ async def delete_user_faces_route(
     """
     Xóa 1 ảnh khuôn mặt của user.
     - Xóa file vật lý
-    - Xóa khỏi photos_path
+    - Xóa khỏi face_image_filenames
     - Xóa embedding tương ứng trong face_embeddings
     """
 
@@ -506,12 +506,12 @@ async def delete_user_faces_route(
         os.remove(file_path)
         LOGGER.info(f"Deleted face image: {file_path}")
 
-        # 6. Xóa khỏi DB (photos_path + face_embeddings)
+        # 6. Xóa khỏi DB (face_image_filenames + face_embeddings)
         update_result = await db[USER_COLLECTION].update_one(
             {"_id": ObjectId(user_id)},
             {
                 "$pull": {
-                    "photos_path": filename,
+                    "face_image_filenames": filename,
                     "face_embeddings": {"path": filename},  # xóa embedding tương ứng
                 }
             },
