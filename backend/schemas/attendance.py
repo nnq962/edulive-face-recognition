@@ -65,9 +65,3 @@ class UserMonthlyAttendance(BaseModel):
     attendances: List[DailyAttendance] = Field(
         ..., example=[{"date": "2025-10-01T00:00:00Z", "check_in_time": "2025-10-01T08:15:00Z", "check_out_time": "2025-10-01T17:05:00Z"}]
     )
-
-
-class MonthlyAttendanceReport(BaseModel):
-    data: List[UserMonthlyAttendance] = Field(
-        ..., example=[{"user_id": "69009a95f8f19decdd27172a", "full_name": "Nguyễn Ngọc Quyết", "attendances": [{"date": "2025-10-01T00:00:00Z", "check_in_time": "2025-10-01T08:15:00Z", "check_out_time": "2025-10-01T17:05:00Z"}]}]
-    )

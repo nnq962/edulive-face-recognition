@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Table, Button, DatePicker, Input, Space, message, Card, Row, Col, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
-import { SearchOutlined, ClearOutlined } from '@ant-design/icons'
+import { SearchOutlined, ClearOutlined, DownloadOutlined } from '@ant-design/icons'
 import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import dayjs from 'dayjs'
@@ -63,7 +63,7 @@ const ExportData: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(100)
   const [total, setTotal] = useState(0)
-  const [loadings, setLoadings] = useState<boolean[]>([])
+  const [exportLoading, setExportLoading] = useState(false)
 
   // Filter states - Các state để quản lý filters cho API
   const [filterMonth, setFilterMonth] = useState<Dayjs>(dayjs()) // Tháng được chọn
@@ -195,6 +195,30 @@ const ExportData: React.FC = () => {
       date,
       filterDepartment
     )
+  }
+
+  // Handle xuất Excel
+  const handleExportExcel = async () => {
+    try {
+      setExportLoading(true)
+      
+      // Gửi filters (KHÔNG gửi data)
+      await exportdataApi.exportMonthlyReportToExcel({
+        month: filterMonth.format('YYYY-MM'),
+        user_id: filterUserId,
+        date: filterDate ? filterDate.format('YYYY-MM-DD') : undefined,
+        department: filterDepartment,
+      })
+      
+      // Hiển thị thông báo thành công
+      message.success('Export Excel successful')
+      
+    } catch (error: any) {
+      console.error('Error exporting Excel:', error)
+      message.error(error?.response?.data?.detail || 'Failed to export Excel')
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   // Handle pagination change
@@ -377,7 +401,7 @@ const ExportData: React.FC = () => {
   ]
 
   return (
-    <div>
+    <div style={{ padding: '0 0 16px 0' }}>
       {/* Filter Card */}
       <Card
         style={{
@@ -542,11 +566,9 @@ const ExportData: React.FC = () => {
               }}>
                 <Button
                   type="primary"
-                  loading={loadings[1]}
-                  onClick={() => {
-                    // message.info('Tính năng xuất Excel đang phát triển')
-                    message.info('Export Excel feature is under development')
-                  }}
+                  icon={<DownloadOutlined />}
+                  loading={exportLoading}
+                  onClick={handleExportExcel}
                 >
                   Xuất Excel
                 </Button>

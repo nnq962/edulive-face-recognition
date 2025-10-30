@@ -56,8 +56,8 @@ export const DepartmentsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch (err: any) {
             // Chỉ báo lỗi nếu là admin/super_admin (vì user thường không có quyền)
             if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-                console.error('Lỗi khi tải danh sách phòng ban:', err);
-                message.error('Không thể tải danh sách phòng ban');
+                console.error('Error fetching department list:', err);
+                message.error('Failed to load department list');
             }
         } finally {
             setLoading(false);

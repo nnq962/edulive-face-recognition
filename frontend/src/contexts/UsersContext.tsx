@@ -97,7 +97,7 @@ export const UsersProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             // Chỉ báo lỗi nếu là admin/super_admin (vì user thường không có quyền)
             if (user && (user.role === 'admin' || user.role === 'super_admin')) {
                 console.error('Lỗi khi tải danh sách nhân viên:', err);
-                message.error('Không thể tải danh sách nhân viên');
+                message.error('Failed to load employee list');
             }
         } finally {
             setLoading(false);

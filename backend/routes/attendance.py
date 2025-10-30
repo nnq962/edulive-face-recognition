@@ -5,10 +5,10 @@ from datetime import datetime
 from typing import Optional, Literal
 from pathlib import Path
 
-from backend.schemas.attendance import AttendanceResponse, MonthlyAttendanceReport, UserMonthlyAttendance
+from backend.schemas.attendance import AttendanceResponse, UserMonthlyAttendance
 from backend.schemas.common import ApiError, PaginatedResponse
 from backend.utils.pagination import PaginationParams
-from backend.services.attendance import get_user_attendances, get_monthly_attendance_report
+from backend.services.attendance import get_user_attendances, get_monthly_attendance_report, get_monthly_attendance_report_for_export, generate_excel_report
 from config.dependencies import get_db, get_current_active_user, require_admin
 from utils import LOGGER
 
@@ -314,6 +314,143 @@ async def get_monthly_report(
         )
     except Exception as e:
         LOGGER.error(f"Error fetching monthly attendance report: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error: {str(e)}"
+        )
+
+
+# ==================== Export Monthly Attendance Report to Excel API ====================
+@router.get(
+    "/monthly-report/export",
+    summary="Xuất báo cáo chấm công theo tháng ra file Excel",
+    description="API xuất báo cáo chấm công theo tháng ra file Excel. Giống API /monthly-report nhưng KHÔNG có pagination và trả về file Excel thay vì JSON.",
+    responses={
+        200: {
+            "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}},
+            "description": "Trả về file Excel",
+        },
+        400: {
+            "model": ApiError,
+            "description": "Bad Request (invalid month format)",
+        },
+        401: {
+            "model": ApiError,
+            "description": "Unauthorized",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def export_monthly_report_excel(
+    month: str = Query(
+        ...,
+        description="Tháng cần lấy báo cáo (format: YYYY-MM)",
+        example="2025-10",
+        regex=r"^\d{4}-\d{2}$"
+    ),
+    user_id: Optional[str] = Query(
+        None,
+        description="Lọc theo user_id cụ thể (optional)",
+        example="69009a95f8f19decdd27172a"
+    ),
+    date: Optional[str] = Query(
+        None,
+        description="Lọc theo ngày cụ thể (format: YYYY-MM-DD, optional)",
+        example="2025-10-01",
+        regex=r"^\d{4}-\d{2}-\d{2}$"
+    ),
+    department: Optional[str] = Query(
+        None,
+        description="Lọc theo phòng ban (tên phòng ban, optional)",
+        example="Tầng 1"
+    ),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Xuất báo cáo chấm công theo tháng ra file Excel
+    
+    **Parameters:**
+    - month: Tháng cần lấy báo cáo (format: YYYY-MM, ví dụ: 2025-10)
+    - user_id: Lọc theo user_id cụ thể (optional)
+    - date: Lọc theo ngày cụ thể (format: YYYY-MM-DD, optional)
+    - department: Lọc theo tên phòng ban (optional)
+    
+    **Khác biệt với /monthly-report:**
+    - KHÔNG có pagination (page, limit)
+    - Lấy TẤT CẢ data theo filters
+    - Trả về file Excel thay vì JSON
+    
+    **Use cases:**
+    1. Xuất tất cả users trong tháng:
+       GET /api/attendances/monthly-report/export?month=2025-10
+    
+    2. Xuất theo phòng ban:
+       GET /api/attendances/monthly-report/export?month=2025-10&department=Tầng 1
+    
+    3. Xuất 1 user cụ thể:
+       GET /api/attendances/monthly-report/export?month=2025-10&user_id=xxx
+    
+    4. Xuất 1 ngày cụ thể:
+       GET /api/attendances/monthly-report/export?month=2025-10&date=2025-10-15
+    
+    **Returns:**
+    - File Excel (.xlsx)
+    """
+    
+    try:
+        # Validate month format
+        if not month or len(month.split("-")) != 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid month format. Expected format: YYYY-MM (e.g., 2025-10)"
+            )
+        
+        LOGGER.info(f"Exporting monthly report for month: {month}, filters: user_id={user_id}, date={date}, department={department}")
+        
+        # Gọi service để lấy data (KHÔNG pagination)
+        data = await get_monthly_attendance_report_for_export(
+            db=db,
+            month_str=month,
+            user_id=user_id,
+            filter_date=date,
+            department=department
+        )
+        
+        # Kiểm tra nếu không có data
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No attendance records found for the given filters"
+            )
+        
+        LOGGER.info(f"Generating Excel file with {len(data)} records")
+        
+        # Generate Excel file
+        excel_filepath = generate_excel_report(data, month)
+        
+        LOGGER.info(f"Excel file generated at: {excel_filepath}")
+        
+        # Trả về file Excel
+        return FileResponse(
+            path=excel_filepath,
+            filename=f"attendance_report_{month}.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            background=None  # File sẽ bị xóa sau khi gửi xong
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        LOGGER.error(f"Error exporting monthly attendance report: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error: {str(e)}"

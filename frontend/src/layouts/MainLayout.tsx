@@ -95,7 +95,7 @@ const MainLayout: React.FC = () => {
         // Bước 3: Redirect về trang login
         navigate('/login', { replace: true });
 
-        message.success('Đăng xuất thành công');
+        message.success('Logout successful');
     };
 
     // Mock data

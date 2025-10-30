@@ -1,8 +1,13 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Optional, List, Dict, Any
 from bson import ObjectId
 import calendar
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+import tempfile
+import os
 
 from backend.schemas.common import PaginationMeta
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
@@ -270,3 +275,289 @@ async def get_monthly_attendance_report(
     pagination_meta = calculate_pagination_meta(page, limit, total)
     
     return result, pagination_meta
+
+
+async def get_monthly_attendance_report_for_export(
+    db: AsyncIOMotorDatabase,
+    month_str: str,
+    user_id: Optional[str] = None,
+    filter_date: Optional[str] = None,
+    department: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Lấy báo cáo chấm công theo tháng cho export Excel (KHÔNG pagination)
+    
+    Args:
+        db: Database instance
+        month_str: Tháng cần lấy (format: "YYYY-MM", ví dụ: "2025-10")
+        user_id: Filter theo user_id cụ thể (optional)
+        filter_date: Filter theo ngày cụ thể (format: "YYYY-MM-DD", optional)
+        department: Filter theo tên phòng ban (string, optional)
+    
+    Returns:
+        list: Tất cả attendance records (không pagination)
+    """
+    
+    # Parse month string to year and month
+    try:
+        year, month = map(int, month_str.split("-"))
+    except ValueError:
+        raise ValueError("Invalid month format. Expected format: YYYY-MM (e.g., 2025-10)")
+    
+    # Tính số ngày trong tháng
+    num_days = calendar.monthrange(year, month)[1]
+    
+    # Tạo start_date và end_date cho tháng
+    start_date = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end_date = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=timezone.utc)
+    
+    # Lấy tất cả users, sắp xếp theo full_name
+    users_collection = db[USER_COLLECTION]
+    
+    # Build user query with filters
+    user_query = {}
+    
+    # Filter by user_id nếu có
+    if user_id:
+        try:
+            user_query["_id"] = ObjectId(user_id)
+        except:
+            raise ValueError(f"Invalid user_id format: {user_id}")
+    
+    # Filter by department (string) nếu có
+    if department:
+        user_query["department"] = department
+    
+    users = await users_collection.find(user_query).sort("full_name", 1).to_list(length=None)
+    
+    if not users:
+        return []
+    
+    # Lấy tất cả attendance records trong tháng
+    attendances_collection = db[ATTENDANCE_COLLECTION]
+    query = {
+        "date": {
+            "$gte": start_date,
+            "$lte": end_date
+        }
+    }
+    
+    attendance_records = await attendances_collection.find(query).to_list(length=None)
+    
+    # Tạo lookup dictionary: {user_id: {date_str: attendance_data}}
+    attendance_by_user = {}
+    for record in attendance_records:
+        user_id_str = str(record["user_id"])
+        record_date = record["date"]
+        
+        # Convert datetime to date string (YYYY-MM-DD)
+        date_str = record_date.strftime("%Y-%m-%d")
+        
+        if user_id_str not in attendance_by_user:
+            attendance_by_user[user_id_str] = {}
+        
+        attendance_by_user[user_id_str][date_str] = {
+            "check_in_time": record.get("check_in_time"),
+            "check_out_time": record.get("check_out_time")
+        }
+    
+    # Tạo danh sách tất cả các ngày trong tháng
+    all_dates = [date(year, month, day) for day in range(1, num_days + 1)]
+    
+    # Nếu có filter_date, chỉ lấy ngày đó
+    if filter_date:
+        try:
+            filter_date_obj = datetime.strptime(filter_date, "%Y-%m-%d").date()
+            # Kiểm tra xem ngày có thuộc tháng hiện tại không
+            if filter_date_obj.year == year and filter_date_obj.month == month:
+                all_dates = [filter_date_obj]
+            else:
+                # Ngày không thuộc tháng hiện tại -> trả về rỗng
+                return []
+        except ValueError:
+            raise ValueError(f"Invalid date format: {filter_date}. Expected format: YYYY-MM-DD")
+    
+    # Tạo flatten list: [user1_day1, user1_day2, ..., user2_day1, user2_day2, ...]
+    flattened_data = []
+    
+    for user in users:
+        user_id_str = str(user["_id"])
+        user_full_name = user.get("full_name", "Unknown")
+        user_department = user.get("department", "")
+        user_position = user.get("position", "")
+        
+        user_attendances_dict = attendance_by_user.get(user_id_str, {})
+        
+        # Tạo attendance data cho mỗi ngày
+        for day_date in all_dates:
+            date_str = day_date.strftime("%Y-%m-%d")
+            
+            attendance_data = user_attendances_dict.get(date_str, {})
+            
+            flattened_data.append({
+                "user_id": user_id_str,
+                "full_name": user_full_name,
+                "department": user_department,
+                "position": user_position,
+                "date": day_date,
+                "check_in_time": attendance_data.get("check_in_time"),
+                "check_out_time": attendance_data.get("check_out_time")
+            })
+    
+    return flattened_data
+
+
+def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
+    """
+    Generate Excel file từ attendance data
+    
+    Args:
+        data: List of attendance records
+        month_str: Tháng (format: YYYY-MM)
+    
+    Returns:
+        str: Path to the generated Excel file
+    """
+    
+    # Tạo workbook mới
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"Báo cáo {month_str}"
+    
+    # Define styles
+    header_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    header_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    
+    cell_alignment = Alignment(horizontal='center', vertical='center')
+    border = Border(
+        left=Side(style='thin', color='000000'),
+        right=Side(style='thin', color='000000'),
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
+    
+    # Headers
+    headers = [
+        'STT',
+        'Tên nhân viên',
+        'Phòng ban',
+        'Chức vụ',
+        'Ngày',
+        'Thứ',
+        'Giờ vào',
+        'Giờ ra',
+        'Tổng giờ',
+    ]
+    
+    # Write headers
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    # Adjust column widths
+    column_widths = [6, 25, 15, 20, 12, 10, 10, 10, 12]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+    
+    # Write data
+    weekday_names = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+    
+    for row_num, record in enumerate(data, 2):
+        # STT
+        cell = ws.cell(row=row_num, column=1)
+        cell.value = row_num - 1
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Tên nhân viên
+        cell = ws.cell(row=row_num, column=2)
+        cell.value = record['full_name']
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.border = border
+        
+        # Phòng ban
+        cell = ws.cell(row=row_num, column=3)
+        cell.value = record.get('department', '')
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Chức vụ
+        cell = ws.cell(row=row_num, column=4)
+        cell.value = record.get('position', '')
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.border = border
+        
+        # Ngày
+        cell = ws.cell(row=row_num, column=5)
+        date_obj = record['date']
+        cell.value = date_obj.strftime('%Y-%m-%d')
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Thứ
+        cell = ws.cell(row=row_num, column=6)
+        cell.value = weekday_names[date_obj.weekday() if date_obj.weekday() < 6 else 6]
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Giờ vào
+        cell = ws.cell(row=row_num, column=7)
+        check_in = record.get('check_in_time')
+        if check_in:
+            if isinstance(check_in, datetime):
+                # Chuyển từ UTC sang UTC+7 (Việt Nam)
+                check_in_vn = check_in.replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=7)))
+                cell.value = check_in_vn.strftime('%H:%M')
+            else:
+                cell.value = str(check_in)
+        else:
+            cell.value = '-'
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Giờ ra
+        cell = ws.cell(row=row_num, column=8)
+        check_out = record.get('check_out_time')
+        if check_out:
+            if isinstance(check_out, datetime):
+                # Chuyển từ UTC sang UTC+7 (Việt Nam)
+                check_out_vn = check_out.replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=7)))
+                cell.value = check_out_vn.strftime('%H:%M')
+            else:
+                cell.value = str(check_out)
+        else:
+            cell.value = '-'
+        cell.alignment = cell_alignment
+        cell.border = border
+        
+        # Tổng giờ
+        cell = ws.cell(row=row_num, column=9)
+        if check_in and check_out:
+            if isinstance(check_in, datetime) and isinstance(check_out, datetime):
+                diff_minutes = (check_out - check_in).total_seconds() / 60
+                hours = int(diff_minutes // 60)
+                minutes = int(diff_minutes % 60)
+                cell.value = f"{hours}h {minutes}m"
+            else:
+                cell.value = '-'
+        else:
+            cell.value = '-'
+        cell.alignment = cell_alignment
+        cell.border = border
+    
+    # Freeze first row
+    ws.freeze_panes = 'A2'
+    
+    # Save to temporary file
+    temp_dir = tempfile.gettempdir()
+    filename = f"attendance_report_{month_str}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filepath = os.path.join(temp_dir, filename)
+    
+    wb.save(filepath)
+    
+    return filepath

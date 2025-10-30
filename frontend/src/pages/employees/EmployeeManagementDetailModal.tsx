@@ -301,7 +301,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
 
             // Hiển thị kết quả
             if (meta.valid_count > 0) {
-                message.success(`Successfully uploaded ${meta.valid_count} images!`);
+                message.success(`Successfully uploaded ${meta.valid_count} image(s)!`);
             }
 
             if (meta.invalid_count > 0) {
@@ -314,7 +314,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                     content: (
                         <div>
                             <div style={{ marginBottom: 8 }}>
-                                <strong>{meta.invalid_count} invalid files</strong>
+                                <strong>{meta.invalid_count} invalid file(s)</strong>
                             </div>
                             <div style={{ fontSize: 12, whiteSpace: 'pre-line' }}>
                                 {invalidDetails}
@@ -332,10 +332,10 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             await fetchUserFaces(employeeData.key);
 
         } catch (error: any) {
-            console.error('Error uploading images:', error);
+            console.error('Error uploading image(s):', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Failed to upload images';
+                                'Failed to upload image(s)';
             message.error(errorMessage);
         } finally {
             setUploadingImages(false);
