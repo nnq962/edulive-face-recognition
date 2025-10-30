@@ -1,13 +1,15 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Optional, List, Dict, Any
 from bson import ObjectId
+import calendar
 
 from backend.schemas.common import PaginationMeta
-from backend.utils.pagination import PaginationParams
+from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 
 
 ATTENDANCE_COLLECTION = "attendances"
+USER_COLLECTION = "users"
 
 
 async def get_user_attendances(
@@ -100,3 +102,171 @@ async def get_user_attendances(
     )
     
     return attendances, pagination_meta
+
+
+async def get_monthly_attendance_report(
+    db: AsyncIOMotorDatabase,
+    month_str: str,
+    page: int = 1,
+    limit: int = 10,
+    user_id: Optional[str] = None,
+    filter_date: Optional[str] = None,
+    employee_name: Optional[str] = None
+) -> tuple[List[Dict[str, Any]], dict]:
+    """
+    Lấy báo cáo chấm công theo tháng cho toàn bộ users với filtering
+    
+    Args:
+        db: Database instance
+        month_str: Tháng cần lấy (format: "YYYY-MM", ví dụ: "2025-10")
+        page: Trang hiện tại (default: 1)
+        limit: Số items mỗi trang (default: 10)
+        user_id: Filter theo user_id cụ thể (optional)
+        filter_date: Filter theo ngày cụ thể (format: "YYYY-MM-DD", optional)
+        employee_name: Filter theo tên nhân viên (partial match, optional)
+    
+    Returns:
+        tuple: (list of user monthly attendances, pagination metadata)
+        
+    Logic:
+        - Mỗi user sẽ có đầy đủ các ngày trong tháng (30/31 ngày)
+        - Ngày nào không có dữ liệu thì check_in_time và check_out_time = None
+        - Filter được áp dụng trước khi pagination
+        - Pagination áp dụng trên flatten list: 30 ngày của user A -> 30 ngày của user B -> ...
+    """
+    
+    # Parse month string to year and month
+    try:
+        year, month = map(int, month_str.split("-"))
+    except ValueError:
+        raise ValueError("Invalid month format. Expected format: YYYY-MM (e.g., 2025-10)")
+    
+    # Tính số ngày trong tháng
+    num_days = calendar.monthrange(year, month)[1]
+    
+    # Tạo start_date và end_date cho tháng
+    start_date = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end_date = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=timezone.utc)
+    
+    # Lấy tất cả users, sắp xếp theo full_name
+    users_collection = db[USER_COLLECTION]
+    
+    # Build user query with filters
+    user_query = {}
+    
+    # Filter by user_id nếu có
+    if user_id:
+        try:
+            user_query["_id"] = ObjectId(user_id)
+        except:
+            raise ValueError(f"Invalid user_id format: {user_id}")
+    
+    # Filter by employee_name nếu có (partial match, case-insensitive)
+    if employee_name:
+        user_query["full_name"] = {"$regex": employee_name, "$options": "i"}
+    
+    users = await users_collection.find(user_query).sort("full_name", 1).to_list(length=None)
+    
+    if not users:
+        return [], calculate_pagination_meta(page, limit, 0)
+    
+    # Lấy tất cả attendance records trong tháng
+    attendances_collection = db[ATTENDANCE_COLLECTION]
+    query = {
+        "date": {
+            "$gte": start_date,
+            "$lte": end_date
+        }
+    }
+    
+    attendance_records = await attendances_collection.find(query).to_list(length=None)
+    
+    # Tạo lookup dictionary: {user_id: {date_str: attendance_data}}
+    attendance_by_user = {}
+    for record in attendance_records:
+        user_id_str = str(record["user_id"])
+        record_date = record["date"]
+        
+        # Convert datetime to date string (YYYY-MM-DD)
+        date_str = record_date.strftime("%Y-%m-%d")
+        
+        if user_id_str not in attendance_by_user:
+            attendance_by_user[user_id_str] = {}
+        
+        attendance_by_user[user_id_str][date_str] = {
+            "check_in_time": record.get("check_in_time"),
+            "check_out_time": record.get("check_out_time")
+        }
+    
+    # Tạo danh sách tất cả các ngày trong tháng
+    all_dates = [date(year, month, day) for day in range(1, num_days + 1)]
+    
+    # Nếu có filter_date, chỉ lấy ngày đó
+    if filter_date:
+        try:
+            filter_date_obj = datetime.strptime(filter_date, "%Y-%m-%d").date()
+            # Kiểm tra xem ngày có thuộc tháng hiện tại không
+            if filter_date_obj.year == year and filter_date_obj.month == month:
+                all_dates = [filter_date_obj]
+            else:
+                # Ngày không thuộc tháng hiện tại -> trả về rỗng
+                return [], calculate_pagination_meta(page, limit, 0)
+        except ValueError:
+            raise ValueError(f"Invalid date format: {filter_date}. Expected format: YYYY-MM-DD")
+    
+    # Tạo flatten list: [user1_day1, user1_day2, ..., user2_day1, user2_day2, ...]
+    flattened_data = []
+    
+    for user in users:
+        user_id_str = str(user["_id"])
+        user_full_name = user.get("full_name", "Unknown")
+        
+        user_attendances_dict = attendance_by_user.get(user_id_str, {})
+        
+        # Tạo attendance data cho mỗi ngày
+        for day_date in all_dates:
+            date_str = day_date.strftime("%Y-%m-%d")
+            
+            attendance_data = user_attendances_dict.get(date_str, {})
+            
+            flattened_data.append({
+                "user_id": user_id_str,
+                "full_name": user_full_name,
+                "date": day_date,
+                "check_in_time": attendance_data.get("check_in_time"),
+                "check_out_time": attendance_data.get("check_out_time")
+            })
+    
+    # Calculate total records
+    total = len(flattened_data)
+    
+    # Apply pagination
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    paginated_data = flattened_data[start_idx:end_idx]
+    
+    # Group lại theo user cho response
+    user_groups = {}
+    for item in paginated_data:
+        user_id = item["user_id"]
+        
+        if user_id not in user_groups:
+            user_groups[user_id] = {
+                "user_id": user_id,
+                "full_name": item["full_name"],
+                "attendances": []
+            }
+        
+        user_groups[user_id]["attendances"].append({
+            "date": item["date"],
+            "check_in_time": item["check_in_time"],
+            "check_out_time": item["check_out_time"]
+        })
+    
+    # Convert to list
+    result = list(user_groups.values())
+    
+    # Calculate pagination metadata
+    pagination_meta = calculate_pagination_meta(page, limit, total)
+    
+    return result, pagination_meta

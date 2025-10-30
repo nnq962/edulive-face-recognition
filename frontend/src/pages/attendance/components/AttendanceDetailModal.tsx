@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react'
-import { Modal, Descriptions, Image, Tabs, Form, Select, Input, Upload, Button, message, Card } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Modal, Image, Form, Select, Input, Upload, Button, message, Card } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import { attendancesApi } from '@/api'

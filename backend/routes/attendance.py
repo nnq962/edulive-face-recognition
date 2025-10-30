@@ -5,11 +5,11 @@ from datetime import datetime
 from typing import Optional, Literal
 from pathlib import Path
 
-from backend.schemas.attendance import AttendanceResponse
+from backend.schemas.attendance import AttendanceResponse, MonthlyAttendanceReport, UserMonthlyAttendance
 from backend.schemas.common import ApiError, PaginatedResponse
 from backend.utils.pagination import PaginationParams
-from backend.services.attendance import get_user_attendances
-from config.dependencies import get_db, get_current_active_user
+from backend.services.attendance import get_user_attendances, get_monthly_attendance_report
+from config.dependencies import get_db, get_current_active_user, require_admin
 from utils import LOGGER
 
 router = APIRouter(prefix="/api/attendances", tags=["Attendances"])
@@ -187,4 +187,134 @@ async def get_attendance_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error serving image: {str(e)}"
+        )
+
+
+# ==================== Get Monthly Attendance Report API ====================
+@router.get(
+    "/monthly-report",
+    response_model=PaginatedResponse[UserMonthlyAttendance],
+    summary="Lấy báo cáo chấm công theo tháng cho toàn bộ users",
+    description="API lấy báo cáo chấm công theo tháng với pagination. Mỗi user sẽ có đầy đủ các ngày trong tháng, ngày không có dữ liệu thì trả về None.",
+    responses={
+        400: {
+            "model": ApiError,
+            "description": "Bad Request (invalid month format)",
+        },
+        401: {
+            "model": ApiError,
+            "description": "Unauthorized",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+    response_model_exclude_none=True,
+)
+async def get_monthly_report(
+    month: str = Query(
+        ...,
+        description="Tháng cần lấy báo cáo (format: YYYY-MM)",
+        example="2025-10",
+        regex=r"^\d{4}-\d{2}$"
+    ),
+    page: int = Query(
+        1,
+        ge=1,
+        description="Trang hiện tại (bắt đầu từ 1)"
+    ),
+    limit: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Số items mỗi trang (max 100)"
+    ),
+    user_id: Optional[str] = Query(
+        None,
+        description="Lọc theo user_id cụ thể (optional)",
+        example="69009a95f8f19decdd27172a"
+    ),
+    date: Optional[str] = Query(
+        None,
+        description="Lọc theo ngày cụ thể (format: YYYY-MM-DD, optional)",
+        example="2025-10-01",
+        regex=r"^\d{4}-\d{2}-\d{2}$"
+    ),
+    employee_name: Optional[str] = Query(
+        None,
+        description="Lọc theo tên nhân viên (tìm kiếm gần đúng, optional)",
+        example="Nguyễn"
+    ),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """
+    Lấy báo cáo chấm công theo tháng cho toàn bộ users với filtering
+    
+    **Parameters:**
+    - month: Tháng cần lấy báo cáo (format: YYYY-MM, ví dụ: 2025-10)
+    - page: Trang hiện tại (default: 1)
+    - limit: Số items mỗi trang (default: 10, max: 100)
+    - user_id: Lọc theo user_id cụ thể (optional)
+    - date: Lọc theo ngày cụ thể (format: YYYY-MM-DD, optional)
+    - employee_name: Lọc theo tên nhân viên - tìm kiếm gần đúng (optional)
+    
+    **Logic:**
+    - Mỗi user sẽ có đầy đủ các ngày trong tháng (30/31 ngày)
+    - Ngày nào không có dữ liệu thì check_in_time và check_out_time = None
+    - Filter được áp dụng trước pagination
+    - Pagination áp dụng trên flatten list theo thứ tự: 
+      30 ngày của user A -> 30 ngày của user B -> ...
+    
+    **Use cases:**
+    1. Xem tất cả users trong 1 ngày cụ thể:
+       GET /api/attendances/monthly-report?month=2025-10&date=2025-10-01&limit=100
+    
+    2. Xem 1 user cụ thể trong cả tháng:
+       GET /api/attendances/monthly-report?month=2025-10&user_id=xxx&limit=100
+    
+    3. Tìm kiếm theo tên:
+       GET /api/attendances/monthly-report?month=2025-10&employee_name=Nguyễn&limit=100
+    
+    **Returns:**
+    - Danh sách user monthly attendances với pagination metadata
+    """
+    
+    try:
+        # Validate month format
+        if not month or len(month.split("-")) != 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid month format. Expected format: YYYY-MM (e.g., 2025-10)"
+            )
+        
+        # Gọi service để lấy data
+        data, pagination_meta = await get_monthly_attendance_report(
+            db=db,
+            month_str=month,
+            page=page,
+            limit=limit,
+            user_id=user_id,
+            filter_date=date,
+            employee_name=employee_name
+        )
+        
+        return PaginatedResponse(
+            success=True,
+            message=f"Successfully fetched monthly attendance report for {month}",
+            data=data,  # data đã là list[UserMonthlyAttendance] rồi
+            meta=pagination_meta
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        LOGGER.error(f"Error fetching monthly attendance report: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error: {str(e)}"
         )
