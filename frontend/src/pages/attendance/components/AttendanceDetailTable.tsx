@@ -8,6 +8,7 @@ import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import AttendanceDetailModal from './AttendanceDetailModal'
 import { attendancesApi } from '@/api';
+import { LoadingOutlined } from '@ant-design/icons'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -332,7 +333,7 @@ const [total, setTotal] = useState(0)
                 dataSource={tableData}
                 loading={{
                     spinning: loading,
-                    // tip: 'Đang tải dữ liệu chấm công...',
+                    indicator: <LoadingOutlined spin />,
                     tip: 'Loading attendance data...',
                 }}
                 pagination={{

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Table, Button, DatePicker, Input, Space, message, Card, Row, Col, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
-import { SearchOutlined, ClearOutlined, DownloadOutlined } from '@ant-design/icons'
+import { SearchOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined } from '@ant-design/icons'
 import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import dayjs from 'dayjs'
@@ -526,7 +526,11 @@ const ExportData: React.FC = () => {
         <Table<ExportDataRecord>
           columns={columns}
           dataSource={data} // Sử dụng data từ API trực tiếp (không filter frontend)
-          loading={loading}
+          loading={{
+            spinning: loading,
+            indicator: <LoadingOutlined spin />,
+            tip: 'Loading all attendance data...',
+        }}
           pagination={{
             current: currentPage,
             pageSize: pageSize,

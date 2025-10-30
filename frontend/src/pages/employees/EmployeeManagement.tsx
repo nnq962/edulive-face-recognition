@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { Table, Tag, Button, Input, Space, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
-import { SearchOutlined, PlusOutlined } from '@ant-design/icons'
+import { SearchOutlined, PlusOutlined, LoadingOutlined } from '@ant-design/icons'
 import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import EmployeeManagementDetailModal from './EmployeeManagementDetailModal'
@@ -346,7 +346,11 @@ const EmployeeManagement: React.FC = () => {
             <Table
                 columns={columns}
                 dataSource={employeeList}
-                loading={loading}
+                loading={{
+                    spinning: loading,
+                    indicator: <LoadingOutlined spin />,
+                    tip: 'Loading all employee data...',
+                }}
                 onRow={(record) => ({
                     onClick: () => handleRowClick(record),
                     style: { cursor: 'pointer' },

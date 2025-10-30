@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Badge, Tabs, Tooltip, message } from 'antd';
+import { Layout, Badge, Tooltip, message } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
     MenuOutlined,

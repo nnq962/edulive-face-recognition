@@ -6,7 +6,7 @@ import AttendanceTracking from './pages/attendance/AttendanceTracking'
 import Settings from './pages/settings/Settings'
 import ExportData from './pages/export/ExportData'
 import EmployeeManagement from './pages/employees/EmployeeManagement'
-import Approvals from './pages/approvals/Approvals'
+// import Approvals from './pages/approvals/Approvals'
 import Vip from './pages/vip/Vip'
 import ProtectedRoute from './components/ProtectedRoute'
 // Lazy-load các trang con
@@ -15,6 +15,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 // Bảo vệ route — nếu chưa login thì về trang /login
 import { useAuth } from './contexts/AuthContext'
 import { Spin } from 'antd'
+import { LoadingOutlined } from '@ant-design/icons'
 
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth()
@@ -28,7 +29,10 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         alignItems: 'center', 
         height: '100vh' 
       }}>
-        <Spin size="large" />
+        <Spin 
+        size="large" 
+        indicator={<LoadingOutlined spin />}
+        />
       </div>
     )
   }
