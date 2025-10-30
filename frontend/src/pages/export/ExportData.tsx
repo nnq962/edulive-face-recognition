@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Table, Tag, Button, DatePicker, Input, Space, message, Card, Row, Col, Select } from 'antd'
+import { Table, Button, DatePicker, Input, Space, message, Card, Row, Col, Select } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
 import { SearchOutlined, ClearOutlined } from '@ant-design/icons'
@@ -7,8 +7,9 @@ import type { InputRef } from 'antd'
 import Highlighter from 'react-highlight-words'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
-import exportdataApi from '../../api/exportdataApi'
+import { exportdataApi } from '@/api'
 import { useDepartments } from '../../contexts/DepartmentsContext'
+import { useUsers } from '../../contexts/UsersContext'
 
 // Types cho API response
 interface DailyAttendance {
@@ -51,13 +52,7 @@ interface ExportDataRecord {
   note: string[]
 }
 
-const isWeekend = (date: string) => {
-  const weekday = dayjs(date).day()
-  return weekday === 0 || weekday === 6
-}
-
 const ExportData: React.FC = () => {
-  const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs())
   const [searchText, setSearchText] = useState('')
   const [searchedColumn, setSearchedColumn] = useState('')
   const searchInput = useRef<InputRef>(null)
@@ -70,34 +65,49 @@ const ExportData: React.FC = () => {
   const [total, setTotal] = useState(0)
   const [loadings, setLoadings] = useState<boolean[]>([])
 
-  // Filter states - Các state để quản lý filters
-  const [filterMonth, setFilterMonth] = useState<Dayjs | null>(dayjs()) // Tháng được chọn
+  // Filter states - Các state để quản lý filters cho API
+  const [filterMonth, setFilterMonth] = useState<Dayjs>(dayjs()) // Tháng được chọn
   const [filterDate, setFilterDate] = useState<Dayjs | null>(null) // Ngày cụ thể
-  const [filterName, setFilterName] = useState<string>('') // Tên nhân viên
-  const [filterDepartment, setFilterDepartment] = useState<string | undefined>(undefined) // Phòng ban
+  const [filterUserId, setFilterUserId] = useState<string | undefined>(undefined) // User ID của nhân viên
+  const [filterDepartment, setFilterDepartment] = useState<string | undefined>(undefined) // Tên phòng ban
 
-  // Lấy danh sách phòng ban từ Context
+  // Lấy danh sách phòng ban và users từ Context
   const { departments, loading: departmentsLoading } = useDepartments()
+  const { users, loading: usersLoading } = useUsers()
 
-  // Function để fetch data từ API
-  const fetchMonthlyReport = async (month: string, page: number, limit: number) => {
+  // Function để fetch data từ API với filters
+  const fetchMonthlyReport = async (
+    month: string,
+    page: number,
+    limit: number,
+    userId?: string,
+    date?: string,
+    department?: string
+  ) => {
     try {
       setLoading(true)
-      const response: ApiResponse = await exportdataApi.getMonthlyAttendanceReport({
+      
+      // Build params cho API
+      const params: any = {
         month,
         page,
         limit
-      })
+      }
+
+      // Thêm filters nếu có
+      if (userId) params.user_id = userId
+      if (date) params.date = date
+      if (department) params.department = department
+
+      const response: ApiResponse = await exportdataApi.getMonthlyAttendanceReport(params)
 
       // Transform data từ API sang format của Table
       const transformedData: ExportDataRecord[] = []
 
-      message.success(response.message || `Đã tải ${response.data.length} bản ghi`)
-
       response.data.forEach((user) => {
         user.attendances.forEach((attendance) => {
-          const date = dayjs(attendance.date)
-          const dayOfWeek = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'][date.day()]
+          const attendanceDate = dayjs(attendance.date)
+          const dayOfWeek = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'][attendanceDate.day()]
 
           transformedData.push({
             key: `${user.user_id}-${attendance.date}`,
@@ -121,6 +131,9 @@ const ExportData: React.FC = () => {
       setTotal(response.meta.total)
       setCurrentPage(response.meta.current_page)
 
+      // Hiển thị message thành công
+      message.success(response.message || `Đã tải ${transformedData.length} bản ghi thành công`)
+
     } catch (error: any) {
       console.error('Error fetching monthly report:', error)
       message.error(error?.response?.data?.detail || 'Không thể tải dữ liệu báo cáo')
@@ -143,32 +156,52 @@ const ExportData: React.FC = () => {
     return `${hours}h ${minutes}m`
   }
 
-  // Fetch data khi component mount hoặc khi selectedMonth thay đổi
+  // useEffect để auto-apply filters khi thay đổi
   useEffect(() => {
-    const month = selectedMonth.format('YYYY-MM')
-    fetchMonthlyReport(month, currentPage, pageSize)
-  }, [selectedMonth])
+    const month = filterMonth.format('YYYY-MM')
+    const date = filterDate ? filterDate.format('YYYY-MM-DD') : undefined
+    
+    fetchMonthlyReport(
+      month,
+      currentPage,
+      pageSize,
+      filterUserId,
+      date,
+      filterDepartment
+    )
+  }, [filterMonth, filterDate, filterUserId, filterDepartment, currentPage, pageSize])
+
+  // Hàm xử lý khi Clear tất cả filters
+  const handleClearFilters = () => {
+    setFilterMonth(dayjs()) // Reset về tháng hiện tại
+    setFilterDate(null) // Xóa ngày đã chọn
+    setFilterUserId(undefined) // Xóa user đã chọn
+    setFilterDepartment(undefined) // Xóa phòng ban
+    setCurrentPage(1) // Reset về trang 1
+    
+    // API sẽ được gọi lại tự động qua useEffect
+  }
 
   // Handle làm mới data
   const handleRefresh = () => {
-    const month = selectedMonth.format('YYYY-MM')
-    fetchMonthlyReport(month, currentPage, pageSize)
-  }
-
-  // Handle thay đổi tháng
-  const handleMonthChange = (date: Dayjs | null) => {
-    if (date) {
-      setSelectedMonth(date)
-      setCurrentPage(1) // Reset về trang 1 khi đổi tháng
-    }
+    const month = filterMonth.format('YYYY-MM')
+    const date = filterDate ? filterDate.format('YYYY-MM-DD') : undefined
+    
+    fetchMonthlyReport(
+      month,
+      currentPage,
+      pageSize,
+      filterUserId,
+      date,
+      filterDepartment
+    )
   }
 
   // Handle pagination change
   const handleTableChange = (pagination: any) => {
-    const month = selectedMonth.format('YYYY-MM')
     setCurrentPage(pagination.current)
     setPageSize(pagination.pageSize)
-    fetchMonthlyReport(month, pagination.current, pagination.pageSize)
+    // API sẽ được gọi lại tự động qua useEffect
   }
 
   const handleSearch = (
@@ -253,17 +286,6 @@ const ExportData: React.FC = () => {
         text
       ),
   })
-
-  const tagColors: Record<string, string> = {
-    'Đúng giờ': 'green',
-    'Đi muộn': 'volcano',
-    'Đi muộn sau 8:30': 'red',
-    'Về sớm': 'orange',
-    'Vắng sáng': 'geekblue',
-    'Vắng chiều': 'purple',
-    'Nghỉ cả ngày': 'default',
-    'Có phép': 'blue',
-  }
 
   const columns: ColumnsType<ExportDataRecord> = [
     {
@@ -352,98 +374,38 @@ const ExportData: React.FC = () => {
         return getMinutes(a.totalHours) - getMinutes(b.totalHours)
       },
     },
-    // {
-    //   title: 'Phạt tiền',
-    //   dataIndex: 'fine',
-    //   key: 'fine',
-    //   width: 120,
-    //   render: (fine: string) => (
-    //     <span style={{
-    //       color: fine !== '0đ' ? '#ff4d4f' : '#52c41a',
-    //       fontWeight: fine !== '0đ' ? 600 : 400
-    //     }}>
-    //       {fine}
-    //     </span>
-    //   ),
-    //   sorter: (a, b) => {
-    //     const getValue = (fine: string) => {
-    //       return parseInt(fine.replace(/[^\d]/g, '')) || 0
-    //     }
-    //     return getValue(a.fine) - getValue(b.fine)
-    //   },
-    // },
-    // {
-    //   title: 'Ghi chú',
-    //   dataIndex: 'note',
-    //   key: 'note',
-    //   render: (notes: string[]) => (
-    //     <>
-    //       {notes.map((note) => (
-    //         <Tag color={tagColors[note] || 'default'} key={note} style={{ marginBottom: 4 }}>
-    //           {note}
-    //         </Tag>
-    //       ))}
-    //     </>
-    //   ),
-    // },
   ]
 
-  // Hàm xử lý khi Clear tất cả filters
-  const handleClearFilters = () => {
-    setFilterMonth(dayjs()) // Reset về tháng hiện tại
-    setFilterDate(null) // Xóa ngày đã chọn
-    setFilterName('') // Xóa tên
-    setFilterDepartment(undefined) // Xóa phòng ban
-  }
-
-  // Hàm để apply filters vào data
-  const getFilteredData = () => {
-    let filtered = [...data]
-
-    // Filter theo tên nhân viên
-    if (filterName) {
-      filtered = filtered.filter(item =>
-        item.employeeName.toLowerCase().includes(filterName.toLowerCase())
-      )
-    }
-
-    // Filter theo ngày cụ thể
-    if (filterDate) {
-      const dateStr = filterDate.format('YYYY-MM-DD')
-      filtered = filtered.filter(item => item.date === dateStr)
-    }
-
-    // TODO: Filter theo phòng ban (cần thêm department_id vào data từ API)
-    // if (filterDepartment) {
-    //   filtered = filtered.filter(item => item.department_id === filterDepartment)
-    // }
-
-    return filtered
-  }
-
   return (
-    <div style={{ padding: '0 0 16px 0' }}>
+    <div>
       {/* Filter Card */}
       <Card
         style={{
-          marginBottom: 16,
+          marginBottom: 8,
           boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
           borderRadius: 8,
         }}
         title="Bộ lọc"
         extra={
-          <Button
-            icon={<ClearOutlined />}
-            onClick={handleClearFilters}
-            size="middle"
-            style={{
-              borderColor: '#1890ff', // xanh chuẩn Ant Design
-              color: '#1890ff',       // chữ + icon cùng màu
-            }}
-            
-          >
-            Xóa bộ lọc
-          </Button>
+          <Space>
+            <Button
+              size="middle"
+              type="primary"
+              loading={loading}
+              onClick={handleRefresh}
+            >
+              Làm mới
+            </Button>
+
+            <Button
+              icon={<ClearOutlined />}
+              onClick={handleClearFilters}
+              size="middle"
+              danger
+            >
+              Xóa bộ lọc
+            </Button>
+          </Space>
         }
       >
         <Row gutter={[16, 16]}>
@@ -454,11 +416,10 @@ const ExportData: React.FC = () => {
               picker="month"
               value={filterMonth}
               onChange={(date) => {
-                setFilterMonth(date)
-                // Auto-apply: Khi đổi tháng thì gọi API ngay
                 if (date) {
-                  setSelectedMonth(date)
-                  setCurrentPage(1)
+                  setFilterMonth(date)
+                  setCurrentPage(1) // Reset về trang 1 khi đổi tháng
+                  // API sẽ được gọi tự động qua useEffect
                 }
               }}
               format="YYYY-MM"
@@ -475,7 +436,8 @@ const ExportData: React.FC = () => {
               value={filterDate}
               onChange={(date) => {
                 setFilterDate(date)
-                // Auto-apply: Filter sẽ tự động áp dụng khi render lại
+                setCurrentPage(1) // Reset về trang 1 khi đổi filter
+                // API sẽ được gọi tự động qua useEffect
               }}
               format="YYYY-MM-DD"
               placeholder="Chọn ngày cụ thể"
@@ -483,17 +445,28 @@ const ExportData: React.FC = () => {
             />
           </Col>
 
-          {/* Filter Tên */}
+          {/* Filter Tên nhân viên */}
           <Col xs={24} sm={12} md={6}>
             <div style={{ marginBottom: 4, fontSize: 14, fontWeight: 500 }}>Tên nhân viên</div>
-            <Input
-              placeholder="Nhập tên nhân viên"
-              value={filterName}
-              onChange={(e) => {
-                setFilterName(e.target.value)
-                // Auto-apply: Filter sẽ tự động áp dụng khi render lại
+            <Select
+              showSearch
+              placeholder="Chọn nhân viên"
+              value={filterUserId}
+              onChange={(value) => {
+                setFilterUserId(value)
+                setCurrentPage(1) // Reset về trang 1 khi đổi filter
+                // API sẽ được gọi tự động qua useEffect
               }}
+              style={{ width: '100%' }}
               allowClear
+              loading={usersLoading}
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={users.map(user => ({
+                label: user.full_name,
+                value: user.id,
+              }))}
             />
           </Col>
 
@@ -505,14 +478,15 @@ const ExportData: React.FC = () => {
               value={filterDepartment}
               onChange={(value) => {
                 setFilterDepartment(value)
-                // Auto-apply: Filter sẽ tự động áp dụng khi render lại
+                setCurrentPage(1) // Reset về trang 1 khi đổi filter
+                // API sẽ được gọi tự động qua useEffect
               }}
               style={{ width: '100%' }}
               allowClear
               loading={departmentsLoading}
               options={departments.map(dept => ({
                 label: dept.name,
-                value: dept.id,
+                value: dept.name, // Sử dụng dept.name thay vì dept.id vì backend filter theo string
               }))}
             />
           </Col>
@@ -527,7 +501,7 @@ const ExportData: React.FC = () => {
       }}>
         <Table<ExportDataRecord>
           columns={columns}
-          dataSource={getFilteredData()} // Sử dụng filtered data thay vì data gốc
+          dataSource={data} // Sử dụng data từ API trực tiếp (không filter frontend)
           loading={loading}
           pagination={{
             current: currentPage,
@@ -566,21 +540,6 @@ const ExportData: React.FC = () => {
                 gap: 8,
                 flexWrap: 'wrap'
               }}>
-                <DatePicker
-                  picker="month"
-                  allowClear={false}
-                  value={selectedMonth}
-                  onChange={handleMonthChange}
-                  format="YYYY-MM"
-                  style={{ width: 105 }}
-                />
-                <Button
-                  type="primary"
-                  loading={loading}
-                  onClick={handleRefresh}
-                >
-                  Làm mới
-                </Button>
                 <Button
                   type="primary"
                   loading={loadings[1]}

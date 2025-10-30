@@ -182,9 +182,9 @@ const EmployeeManagement: React.FC = () => {
                 employeeName: user.full_name || user.username,
                 email: user.email,
                 role: user.role,
-                position: user.position || '',
-                department: user.department || '',
-                telegram: user.telegram_username || '',
+                position: user.position || '-',
+                department: user.department || '-',
+                telegram: user.telegram_username || '-',
                 status: user.is_active ? 'active' : 'inactive',
             }))
 
@@ -311,12 +311,12 @@ const EmployeeManagement: React.FC = () => {
             key: 'telegram',
             width: 140,
             render: (telegram: string) => (
-                telegram !== 'N/A' ? (
+                telegram !== '-' ? (
                     <a href={`https://t.me/${telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
                         {telegram}
                     </a>
                 ) : (
-                    <span style={{ color: '#999' }}>N/A</span>
+                    <span style={{ color: '#999' }}>-</span>
                 )
             ),
         },

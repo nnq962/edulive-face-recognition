@@ -111,7 +111,7 @@ async def get_monthly_attendance_report(
     limit: int = 10,
     user_id: Optional[str] = None,
     filter_date: Optional[str] = None,
-    employee_name: Optional[str] = None
+    department: Optional[str] = None
 ) -> tuple[List[Dict[str, Any]], dict]:
     """
     Lấy báo cáo chấm công theo tháng cho toàn bộ users với filtering
@@ -123,7 +123,7 @@ async def get_monthly_attendance_report(
         limit: Số items mỗi trang (default: 10)
         user_id: Filter theo user_id cụ thể (optional)
         filter_date: Filter theo ngày cụ thể (format: "YYYY-MM-DD", optional)
-        employee_name: Filter theo tên nhân viên (partial match, optional)
+        department: Filter theo tên phòng ban (string, optional)
     
     Returns:
         tuple: (list of user monthly attendances, pagination metadata)
@@ -161,9 +161,9 @@ async def get_monthly_attendance_report(
         except:
             raise ValueError(f"Invalid user_id format: {user_id}")
     
-    # Filter by employee_name nếu có (partial match, case-insensitive)
-    if employee_name:
-        user_query["full_name"] = {"$regex": employee_name, "$options": "i"}
+    # Filter by department (string) nếu có
+    if department:
+        user_query["department"] = department
     
     users = await users_collection.find(user_query).sort("full_name", 1).to_list(length=None)
     

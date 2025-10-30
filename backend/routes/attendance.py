@@ -241,10 +241,10 @@ async def get_monthly_report(
         example="2025-10-01",
         regex=r"^\d{4}-\d{2}-\d{2}$"
     ),
-    employee_name: Optional[str] = Query(
+    department: Optional[str] = Query(
         None,
-        description="Lọc theo tên nhân viên (tìm kiếm gần đúng, optional)",
-        example="Nguyễn"
+        description="Lọc theo phòng ban (tên phòng ban, optional)",
+        example="Tầng 1"
     ),
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user: dict = Depends(require_admin),
@@ -258,7 +258,7 @@ async def get_monthly_report(
     - limit: Số items mỗi trang (default: 10, max: 100)
     - user_id: Lọc theo user_id cụ thể (optional)
     - date: Lọc theo ngày cụ thể (format: YYYY-MM-DD, optional)
-    - employee_name: Lọc theo tên nhân viên - tìm kiếm gần đúng (optional)
+    - department: Lọc theo tên phòng ban (optional)
     
     **Logic:**
     - Mỗi user sẽ có đầy đủ các ngày trong tháng (30/31 ngày)
@@ -274,8 +274,8 @@ async def get_monthly_report(
     2. Xem 1 user cụ thể trong cả tháng:
        GET /api/attendances/monthly-report?month=2025-10&user_id=xxx&limit=100
     
-    3. Tìm kiếm theo tên:
-       GET /api/attendances/monthly-report?month=2025-10&employee_name=Nguyễn&limit=100
+    3. Lọc theo phòng ban:
+       GET /api/attendances/monthly-report?month=2025-10&department=Tầng 1&limit=100
     
     **Returns:**
     - Danh sách user monthly attendances với pagination metadata
@@ -297,7 +297,7 @@ async def get_monthly_report(
             limit=limit,
             user_id=user_id,
             filter_date=date,
-            employee_name=employee_name
+            department=department
         )
         
         return PaginatedResponse(

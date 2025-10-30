@@ -170,18 +170,27 @@ const columns: TableProps<AttendanceRecord>['columns'] = [
         dataIndex: 'checkIn',
         key: 'checkIn',
         width: 150,
+        render: (text: string) => (
+            text !== '-' ? text : <span style={{ color: '#999' }}>-</span>
+        ),
     },
     {
         title: 'Check out',
         dataIndex: 'checkOut',
         key: 'checkOut',
         width: 150,
+        render: (text: string) => (
+            text !== '-' ? text : <span style={{ color: '#999' }}>-</span>
+        ),
     },
     {
         title: 'Ghi nhận cuối',
         dataIndex: 'lastRecord',
         key: 'lastRecord',
         width: 150,
+        render: (text: string) => (
+            text !== '-' ? text : <span style={{ color: '#999' }}>-</span>
+        ),
     },
     // {
     //     title: 'Ghi chú',
