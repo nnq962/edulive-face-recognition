@@ -266,15 +266,18 @@ const [total, setTotal] = useState(0)
                 
                 setTableData(mergedData)
                 setTotal(mergedData.length)
-                message.success(`Tải thành công ${apiRecords.length} bản ghi`)
+                // message.success(`Tải thành công ${apiRecords.length} bản ghi`)
+                message.success(`Successfully loaded ${apiRecords.length} records`)
             } else {
-                message.error('Không thể tải dữ liệu chấm công')
+                // message.error('Không thể tải dữ liệu chấm công')
+                message.error('Failed to load attendance data')
                 setTableData([])
                 setTotal(0)
             }
         } catch (error) {
-            console.error('Lỗi khi tải dữ liệu chấm công:', error)
-            message.error('Lỗi khi tải dữ liệu chấm công. Vui lòng thử lại!')
+            // console.error('Lỗi khi tải dữ liệu chấm công:', error)
+            // message.error('Lỗi khi tải dữ liệu chấm công. Vui lòng thử lại!')
+            message.error('Failed to load attendance data. Please try again!')
             setTableData([])
             setTotal(0)
         } finally {
@@ -329,7 +332,8 @@ const [total, setTotal] = useState(0)
                 dataSource={tableData}
                 loading={{
                     spinning: loading,
-                    tip: 'Đang tải dữ liệu chấm công...',
+                    // tip: 'Đang tải dữ liệu chấm công...',
+                    tip: 'Loading attendance data...',
                 }}
                 pagination={{
                     current: currentPage,

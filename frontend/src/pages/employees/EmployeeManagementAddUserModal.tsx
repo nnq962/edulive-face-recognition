@@ -53,7 +53,7 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
 
             const response = await employeesApi.addUser(payload);
             console.log("API Response:", response.data);
-            message.success("Thêm nhân viên thành công");
+            message.success("Add user successful");
             form.resetFields();
             onClose();
             if (onAddSuccess) {
@@ -61,7 +61,7 @@ const EmployeeManagementAddUserModal: React.FC<EmployeeManagementAddUserModalPro
             }
         } catch (error: any) {
             console.error("Validation failed:", error);
-            message.error(error.response?.data?.message || "Không thể thêm nhân viên");
+            message.error(error.response?.data?.message || "Failed to add user");
         } finally {
             setLoading(false);
         }

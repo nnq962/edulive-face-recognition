@@ -125,15 +125,15 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             
             await employeesApi.deleteUserFace(employeeData.key, filename);
             
-            message.success('Đã xóa ảnh thành công');
+            message.success('Delete image successful');
             
             // Reload lại danh sách ảnh
             await fetchUserFaces(employeeData.key);
         } catch (error: any) {
-            console.error('Lỗi khi xóa ảnh:', error);
+            console.error('Error deleting image:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi xóa ảnh';
+                                'Failed to delete image';
             message.error(errorMessage);
         } finally {
             setLoadingImages(false);
@@ -161,7 +161,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
 
             await employeesApi.updateUser(employeeData.key, payload);
 
-            message.success('Cập nhật thông tin nhân viên thành công');
+            message.success('Update user successful');
 
             if (typeof onAddSuccess === 'function') {
                 onAddSuccess(); // reload bảng dữ liệu
@@ -171,8 +171,8 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             form.resetFields();
             onClose();
         } catch (error: any) {
-            console.error('Lỗi khi cập nhật nhân viên:', error);
-            const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Lỗi khi cập nhật nhân viên';
+            console.error('Error updating user:', error);
+            const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Failed to update user';
             message.error(errorMessage);
         } finally {
             setLoading(false);
@@ -189,7 +189,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             await employeesApi.deleteUser(employeeData.key);
 
             // Thông báo thành công
-            message.success('Xóa nhân viên thành công');
+            message.success('Delete user successful');
 
             // Gọi callback để cập nhật danh sách
             if (onDelete) {
@@ -201,12 +201,12 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             form.resetFields();
 
         } catch (error: any) {
-            console.error('Lỗi khi xóa nhân viên:', error);
+            console.error('Error deleting user:', error);
 
             // Hiển thị lỗi cụ thể từ backend
             const errorMessage = error.response?.data?.detail ||
                 error.response?.data?.message ||
-                'Lỗi khi xóa nhân viên';
+                'Failed to delete user';
 
             message.error(errorMessage);
         } finally {
@@ -237,12 +237,12 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
         beforeUpload: (file) => {
             const isImage = file.type.startsWith('image/');
             if (!isImage) {
-                message.error('Bạn chỉ có thể upload file ảnh!');
+                message.error('You can only upload image files!');
                 return false;
             }
             const isLt10M = file.size / 1024 / 1024 < 10;
             if (!isLt10M) {
-                message.error('Kích thước file phải nhỏ hơn 10MB!');
+                message.error('File size must be less than 10MB!');
                 return false;
             }
             
@@ -270,7 +270,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const handleUploadImages = async () => {
         if (!employeeData) return;
         if (fileList.length === 0) {
-            message.warning('Vui lòng chọn ít nhất 1 ảnh để upload');
+            message.warning('Please select at least 1 image to upload');
             return;
         }
 
@@ -286,7 +286,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             }
 
             if (files.length === 0) {
-                message.error('Không có file hợp lệ để upload');
+                message.error('No valid files to upload');
                 return;
             }
 
@@ -301,7 +301,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
 
             // Hiển thị kết quả
             if (meta.valid_count > 0) {
-                message.success(`Đã upload thành công ${meta.valid_count} ảnh!`);
+                message.success(`Successfully uploaded ${meta.valid_count} images!`);
             }
 
             if (meta.invalid_count > 0) {
@@ -314,7 +314,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                     content: (
                         <div>
                             <div style={{ marginBottom: 8 }}>
-                                <strong>{meta.invalid_count} ảnh không hợp lệ</strong>
+                                <strong>{meta.invalid_count} invalid files</strong>
                             </div>
                             <div style={{ fontSize: 12, whiteSpace: 'pre-line' }}>
                                 {invalidDetails}
@@ -332,10 +332,10 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
             await fetchUserFaces(employeeData.key);
 
         } catch (error: any) {
-            console.error('Lỗi khi upload ảnh:', error);
+            console.error('Error uploading images:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi upload ảnh';
+                                'Failed to upload images';
             message.error(errorMessage);
         } finally {
             setUploadingImages(false);

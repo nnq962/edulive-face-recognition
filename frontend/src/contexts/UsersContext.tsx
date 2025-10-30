@@ -42,6 +42,12 @@ export const UsersProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const token = localStorage.getItem('access_token');
             if (!token) return; // Chưa có token thì không gọi API
 
+            // Chỉ fetch nếu là admin hoặc super_admin
+            if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+                console.log('⚠️ User không có quyền truy cập danh sách nhân viên');
+                return;
+            }
+
             setLoading(true);
             
             let allUsers: User[] = [];
@@ -86,9 +92,10 @@ export const UsersProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
 
             setUsers(allUsers);
-            console.log(`✅ Đã tải ${allUsers.length} nhân viên từ ${currentPage - 1} pages`);
+            // console.log(`Đã tải ${allUsers.length} nhân viên từ ${currentPage - 1} pages`);
         } catch (err: any) {
-            if (user) { // Chỉ báo lỗi khi đang login
+            // Chỉ báo lỗi nếu là admin/super_admin (vì user thường không có quyền)
+            if (user && (user.role === 'admin' || user.role === 'super_admin')) {
                 console.error('Lỗi khi tải danh sách nhân viên:', err);
                 message.error('Không thể tải danh sách nhân viên');
             }

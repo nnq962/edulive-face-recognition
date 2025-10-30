@@ -189,6 +189,7 @@ const EmployeeManagement: React.FC = () => {
             }))
 
             setEmployeeList(formattedUsers)
+            message.success(`Successfully loaded ${users.length} users`)
 
             // Cập nhật pagination state
             setPagination({
@@ -197,8 +198,8 @@ const EmployeeManagement: React.FC = () => {
                 total: meta.total,
             })
         } catch (error: any) {
-            console.error('Lỗi khi tải danh sách nhân viên:', error)
-            message.error(error.response?.data?.message || 'Lỗi khi tải danh sách nhân viên')
+            console.error('Error fetching employee list:', error)
+            message.error(error.response?.data?.message || 'Failed to load employee list')
         } finally {
             setLoading(false)
         }

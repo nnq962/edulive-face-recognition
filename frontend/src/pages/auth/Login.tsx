@@ -45,13 +45,13 @@ const Login: React.FC = () => {
           is_active: userData.is_active,
         });
       } catch (userError) {
-        console.error('Lỗi khi lấy thông tin user:', userError);
+        console.error('Error fetching user info:', userError);
       }
 
-      message.success("Đăng nhập thành công");
+      message.success("Login successful");
       navigate("/", { replace: true });
     } catch (err: any) {
-      message.error(err.response?.data?.message || "Sai tài khoản/email hoặc mật khẩu");
+      message.error(err.response?.data?.message || "Invalid username/email or password");
     } finally {
       setLoading(false);
     }

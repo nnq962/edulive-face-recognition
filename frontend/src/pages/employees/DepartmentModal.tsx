@@ -79,7 +79,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 name: newName,
             });
 
-            message.success('Cập nhật phòng ban thành công');
+            message.success('Update department successful');
 
             // Reload lại danh sách
             await reload();
@@ -88,10 +88,10 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             form.resetFields();
 
         } catch (error: any) {
-            console.error('Lỗi khi cập nhật phòng ban:', error);
+            console.error('Error updating department:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi cập nhật phòng ban';
+                                'Failed to update department';
             message.error(errorMessage);
         } finally {
             setActionLoading(false);
@@ -105,16 +105,16 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             // Gọi API delete
             await departmentsApi.deleteDepartment({ id: record.id });
 
-            message.success('Xóa phòng ban thành công');
+            message.success('Delete department successful');
 
             // Reload lại danh sách
             await reload();
 
         } catch (error: any) {
-            console.error('Lỗi khi xóa phòng ban:', error);
+            console.error('Error deleting department:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi xóa phòng ban';
+                                'Failed to delete department';
             message.error(errorMessage);
         } finally {
             setActionLoading(false);
@@ -153,7 +153,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             // Gọi API create
             await departmentsApi.createDepartment({ name: newName });
 
-            message.success('Thêm phòng ban thành công');
+            message.success('Add department successful');
 
             // Reload lại danh sách
             await reload();
@@ -163,10 +163,10 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             form.resetFields();
 
         } catch (error: any) {
-            console.error('Lỗi khi thêm phòng ban:', error);
+            console.error('Error adding department:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi thêm phòng ban';
+                                'Failed to add department';
             message.error(errorMessage);
         } finally {
             setActionLoading(false);
@@ -183,7 +183,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
 
     const handleOk = () => {
         if (editingKey) {
-            message.warning('Vui lòng lưu hoặc hủy chỉnh sửa trước khi đóng!');
+            message.warning('Please save or cancel editing before closing!');
             return;
         }
 
@@ -294,7 +294,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({
             open={open}
             onCancel={() => {
                 if (editingKey) {
-                    message.warning('Vui lòng lưu hoặc hủy chỉnh sửa trước khi đóng!');
+                    message.warning('Please save or cancel editing before closing!');
                     return;
                 }
                 onClose();

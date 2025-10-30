@@ -52,12 +52,12 @@ const Settings: React.FC = () => {
                 telegram_username: values.telegram,
             });
 
-            message.success('Cập nhật thông tin thành công!');
+            message.success('Update profile successful');
         } catch (error: any) {
-            console.error('Lỗi khi cập nhật thông tin:', error);
+            console.error('Error updating profile:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi cập nhật thông tin';
+                                'Failed to update profile';
             message.error(errorMessage);
         } finally {
             setLoadingProfile(false);
@@ -75,13 +75,13 @@ const Settings: React.FC = () => {
                 new_password: values.newPassword,
             });
 
-            message.success('Đổi mật khẩu thành công!');
+            message.success('Change password successful');
             passwordForm.resetFields();
         } catch (error: any) {
-            console.error('Lỗi khi đổi mật khẩu:', error);
+            console.error('Error changing password:', error);
             const errorMessage = error.response?.data?.detail || 
                                 error.response?.data?.message || 
-                                'Lỗi khi đổi mật khẩu';
+                                'Failed to change password';
             message.error(errorMessage);
         } finally {
             setLoadingPassword(false);

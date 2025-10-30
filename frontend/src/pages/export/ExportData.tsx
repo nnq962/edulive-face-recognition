@@ -132,11 +132,11 @@ const ExportData: React.FC = () => {
       setCurrentPage(response.meta.current_page)
 
       // Hiển thị message thành công
-      message.success(response.message || `Đã tải ${transformedData.length} bản ghi thành công`)
+      message.success(response.message || `Successfully loaded ${transformedData.length} records`)
 
     } catch (error: any) {
       console.error('Error fetching monthly report:', error)
-      message.error(error?.response?.data?.detail || 'Không thể tải dữ liệu báo cáo')
+      message.error(error?.response?.data?.detail || 'Failed to load monthly report')
     } finally {
       setLoading(false)
     }
@@ -544,7 +544,8 @@ const ExportData: React.FC = () => {
                   type="primary"
                   loading={loadings[1]}
                   onClick={() => {
-                    message.info('Tính năng xuất Excel đang phát triển')
+                    // message.info('Tính năng xuất Excel đang phát triển')
+                    message.info('Export Excel feature is under development')
                   }}
                 >
                   Xuất Excel

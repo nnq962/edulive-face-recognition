@@ -90,7 +90,7 @@ const Vip: React.FC = () => {
     };
 
     const handlePurchase = () => {
-        message.success(`Đã mua gói ${selectedPlan?.name} thành công!`);
+        message.success(`Successfully purchased ${selectedPlan?.name}`);
         setModalOpen(false);
         setSelectedPlan(null);
     };
@@ -119,7 +119,7 @@ const Vip: React.FC = () => {
                         checkIn: '08:30',
                         checkOut: '17:45',
                     });
-                    message.success('Tìm thấy bản ghi chấm công!');
+                    message.success(`Successfully found record`);
                 } else {
                     setSearchResult({
                         found: false,
@@ -127,7 +127,7 @@ const Vip: React.FC = () => {
                         department: values.department,
                         date: values.date?.format('YYYY-MM-DD'),
                     });
-                    message.info('Không tìm thấy bản ghi chấm công!');
+                    message.info('No record found');
                 }
             }, 500);
         } catch (error) {
@@ -152,7 +152,7 @@ const Vip: React.FC = () => {
             const values = await editForm.validateFields();
             // Simulate API call
             setTimeout(() => {
-                message.success(searchResult?.found ? 'Cập nhật bản ghi thành công!' : 'Tạo bản ghi mới thành công!');
+                message.success(searchResult?.found ? 'Update record successful' : 'Create record successful');
                 setEditModalOpen(false);
                 editForm.resetFields();
                 // Update search result

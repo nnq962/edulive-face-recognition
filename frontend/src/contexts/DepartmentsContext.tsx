@@ -30,7 +30,13 @@ export const DepartmentsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const fetchDepartments = useCallback(async () => {
         try {
             const token = localStorage.getItem('access_token');
-            if (!token) return; // 👈 chưa có token thì không gọi API
+            if (!token) return; // Chưa có token thì không gọi API
+
+            // Chỉ fetch nếu là admin hoặc super_admin
+            if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+                console.log('⚠️ User không có quyền truy cập danh sách phòng ban');
+                return;
+            }
 
             setLoading(true);
             const res = await departmentsApi.getDepartments({
@@ -48,7 +54,8 @@ export const DepartmentsProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             setDepartments(data);
         } catch (err: any) {
-            if (user) { // 👈 chỉ báo lỗi khi đang login
+            // Chỉ báo lỗi nếu là admin/super_admin (vì user thường không có quyền)
+            if (user && (user.role === 'admin' || user.role === 'super_admin')) {
                 console.error('Lỗi khi tải danh sách phòng ban:', err);
                 message.error('Không thể tải danh sách phòng ban');
             }
