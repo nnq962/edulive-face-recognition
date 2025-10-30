@@ -321,6 +321,8 @@ class InsightFaceDetector:
 
                     search_start = time.time()
                     all_user_infos = search_ids(embeddings=all_embeddings, threshold=self.face_recognition_threshold)
+                    LOGGER.debug(all_user_infos)
+                    LOGGER.debug(self.face_recognition_threshold)
                     search_time = time.time() - search_start
 
                     if self.verbose:
@@ -535,7 +537,7 @@ class InsightFaceDetector:
                     
                     if self.face_recognition and user_info is not None:
                         # Có recognition result: hiển thị name + similarity + timing
-                        label = f"{user_info.name} {user_info.similarity*100:.1f}%"
+                        label = f"{user_info.full_name} {user_info.similarity*100:.1f}%"
                         if self.verbose:
                             label += f" (D:{detection_time:.2f}s R:{recognition_time:.2f}s)"
                     elif not self.face_recognition:

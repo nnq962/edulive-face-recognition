@@ -26,7 +26,7 @@ import faiss
 @dataclass
 class FaceRecognitionResult:
     user_id: str
-    name: str
+    full_name: str
     similarity: float
 
 
@@ -67,6 +67,13 @@ def search_ids(embeddings, top_k=1, threshold=0.5):
     with open(faiss_mapping_file_path, "rb") as f:
         index_to_id = pickle.load(f)
 
+    from unidecode import unidecode
+
+    if isinstance(index_to_id, list):
+        for item in index_to_id:
+            if item and "full_name" in item and item["full_name"]:
+                item["full_name"] = unidecode(item["full_name"])
+
     # Chuyển đổi embeddings thành dạng float32
     query_embeddings = np.array(embeddings, dtype=np.float32)
 
@@ -78,11 +85,11 @@ def search_ids(embeddings, top_k=1, threshold=0.5):
         matches = [
             FaceRecognitionResult(
                 user_id=index_to_id[idx]["user_id"],
-                name=index_to_id[idx]["name"],
+                full_name=index_to_id[idx]["full_name"],
                 similarity=float(similarity),
             )
             for idx, similarity in zip(I[query_idx], D[query_idx])
-            if idx != -1 and idx in index_to_id and similarity >= threshold
+            if idx != -1 and 0 <= idx < len(index_to_id) and similarity >= threshold
         ]
         results.append(matches[0] if matches else None)
 

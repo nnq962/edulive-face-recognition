@@ -15,11 +15,11 @@ SEED = 42
 
 # Danh sách user dummy (tuỳ bạn đổi tên/ID)
 DUMMY_USERS = [
-    {"user_id": "u001", "name": "Alice"},
-    {"user_id": "u002", "name": "Bob"},
-    {"user_id": "u003", "name": "Charlie"},
-    {"user_id": "u004", "name": "Diana"},
-    {"user_id": "u005", "name": "Ethan"},
+    {"user_id": "u001", "full_name": "Alice"},
+    {"user_id": "u002", "full_name": "Bob"},
+    {"user_id": "u003", "full_name": "Charlie"},
+    {"user_id": "u004", "full_name": "Diana"},
+    {"user_id": "u005", "full_name": "Ethan"},
 ]
 
 
@@ -32,11 +32,8 @@ def l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 def main():
     # 1) đảm bảo thư mục tồn tại
     paths.FAISS_DIR.mkdir(parents=True, exist_ok=True)
-    paths.FAISS_TEST_DIR.mkdir(parents=True, exist_ok=True)
-    LOGGER.info(f"FAISS_DIR: {paths.FAISS_DIR}")
-    LOGGER.info(f"FAISS_TEST_DIR: {paths.FAISS_TEST_DIR}")
-    LOGGER.info(f"FAISS_FILE: {paths.FAISS_TEST_FILE_PATH}")
-    LOGGER.info(f"FAISS_MAPPING_FILE: {paths.FAISS_TEST_MAPPING_FILE_PATH}")
+    LOGGER.info(f"FAISS_FILE: {paths.FAISS_FILE_PATH}")
+    LOGGER.info(f"FAISS_MAPPING_FILE: {paths.FAISS_MAPPING_FILE_PATH}")
 
     # 2) sinh embeddings ngẫu nhiên + normalize
     assert len(DUMMY_USERS) == NUM_USERS, "Cập nhật NUM_USERS cho khớp DUMMY_USERS"
@@ -47,14 +44,14 @@ def main():
     # 3) build FAISS index (Inner Product)
     index = faiss.IndexFlatIP(EMBED_DIM)
     index.add(embs)
-    faiss.write_index(index, str(paths.FAISS_TEST_FILE_PATH))
+    faiss.write_index(index, str(paths.FAISS_FILE_PATH))
     LOGGER.info(f"✅ Wrote FAISS index to: {paths.FAISS_FILE_PATH}")
 
     # 4) build mapping index -> user info
-    id_mapping = {i: {"user_id": u["user_id"], "name": u["name"]} for i, u in enumerate(DUMMY_USERS)}
-    with open(paths.FAISS_TEST_MAPPING_FILE_PATH, "wb") as f:
+    id_mapping = {i: {"user_id": u["user_id"], "full_name": u["full_name"]} for i, u in enumerate(DUMMY_USERS)}
+    with open(paths.FAISS_MAPPING_FILE_PATH, "wb") as f:
         pickle.dump(id_mapping, f)
-    LOGGER.info(f"✅ Wrote mapping to: {paths.FAISS_TEST_MAPPING_FILE_PATH}")
+    LOGGER.info(f"✅ Wrote mapping to: {paths.FAISS_MAPPING_FILE_PATH}")
     LOGGER.info(f"Done. Users: {[u['user_id'] for u in DUMMY_USERS]}")
 
 

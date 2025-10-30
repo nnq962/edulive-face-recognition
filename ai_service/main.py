@@ -1,6 +1,6 @@
 from config import features
-from insightface_detector import InsightFaceDetector
-from media_manager import MediaManager
+from ai_service.insightface_detector import InsightFaceDetector
+from ai_service.media_manager import MediaManager
 from utils import LOGGER
 
 LOGGER.warning(f"{'TEST MODE' if features.ENABLE_TEST else 'PRODUCTION MODE'}")

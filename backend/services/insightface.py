@@ -64,9 +64,8 @@ async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths
             emb = np.array(face["embedding"], dtype=np.float32)
             all_embeddings.append(emb)
             mapping.append({
-                "_id": user_id,
+                "user_id": user_id,
                 "full_name": full_name,
-                "path": face.get("path")
             })
 
     if not all_embeddings:
@@ -78,7 +77,7 @@ async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths
 
     # Tạo FAISS index
     LOGGER.info(f"Building FAISS index with {len(all_embeddings)} vectors (dim={dim})...")
-    index = faiss.IndexFlatL2(dim)
+    index = faiss.IndexFlatIP(dim)
     index.add(embeddings_np)
 
     # Lưu index.faiss

@@ -1,43 +1,26 @@
-import asyncio
-from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
+import cv2
 
-MONGO_URI = "mongodb://quyetnn:nnq962@localhost:27017/face-recognition?authSource=face-recognition"
-DB_NAME = "face-recognition"
+# Mở webcam (0 là camera mặc định, nếu có nhiều camera thì thử 1, 2, ...)
+cap = cv2.VideoCapture(0)
 
-async def fix_user_ids():
-    client = AsyncIOMotorClient(MONGO_URI)
-    db = client[DB_NAME]
-    attendances = db["attendances"]
+if not cap.isOpened():
+    print("❌ Không thể mở webcam!")
+    exit()
 
-    cursor = attendances.find({})
-    total = 0
-    updated = 0
+while True:
+    # Đọc từng frame
+    ret, frame = cap.read()
+    if not ret:
+        print("❌ Không đọc được khung hình!")
+        break
 
-    async for doc in cursor:
-        total += 1
-        _id = doc["_id"]
-        user_id = doc.get("user_id")
+    # Hiển thị frame
+    cv2.imshow("Webcam", frame)
 
-        # Bỏ qua nếu đã là ObjectId
-        if isinstance(user_id, ObjectId):
-            continue
+    # Nhấn phím 'q' để thoát
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-        # Thử convert string -> ObjectId
-        try:
-            new_user_id = ObjectId(user_id)
-        except Exception as e:
-            print(f"⚠️ Bỏ qua record {_id} vì user_id không hợp lệ: {user_id} ({e})")
-            continue
-
-        # Cập nhật lại document
-        await attendances.update_one(
-            {"_id": _id},
-            {"$set": {"user_id": new_user_id}}
-        )
-        updated += 1
-        print(f"✅ Updated {_id} | user_id = {new_user_id}")
-
-    print(f"\n✅ Hoàn tất: {updated}/{total} records đã được cập nhật")
-
-asyncio.run(fix_user_ids())
+# Giải phóng tài nguyên
+cap.release()
+cv2.destroyAllWindows()

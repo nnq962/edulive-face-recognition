@@ -1,6 +1,6 @@
 from pathlib import Path
-from utils.general import increment_path, check_file
-from utils.dataloaders import LoadImages, LoadStreams, IMG_FORMATS, VID_FORMATS
+from ai_service.utils.general import increment_path, check_file
+from ai_service.utils.dataloaders import LoadImages, LoadStreams, IMG_FORMATS, VID_FORMATS
 
 
 class MediaManager:
