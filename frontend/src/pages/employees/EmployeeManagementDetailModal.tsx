@@ -58,12 +58,12 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 role: employeeData.role.toLowerCase(),
                 position: employeeData.position,
                 department: employeeData.department,
-                telegram: employeeData.telegram,
+                telegram: employeeData.telegram === "-" ? "" : employeeData.telegram,
                 status: employeeData.status,
             });
 
             setActiveTab('1');
-            
+
             // Load images khi mở modal
             if (employeeData.key) {
                 fetchUserFaces(employeeData.key);
@@ -76,23 +76,23 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
         try {
             setLoadingImages(true);
             const response = await employeesApi.getUserFaces(userId);
-            
+
             console.log('User faces response:', response.data);
-            
+
             // Backend trả về: { success: true, data: ["face_xxx.jpg", ...] }
             const faceFiles = response.data.data || [];
-            
+
             // Load từng ảnh qua API (có token)
             const loadedImages = await Promise.all(
                 faceFiles.map(async (filename: string) => {
                     try {
                         // Gọi API viewUserFace qua axios (có token trong header)
                         const imageResponse = await employeesApi.viewUserFace(userId, filename);
-                        
+
                         // Tạo blob URL từ response data
                         const blob = new Blob([imageResponse.data], { type: 'image/jpeg' });
                         const objectUrl = URL.createObjectURL(blob);
-                        
+
                         return {
                             filename,
                             url: objectUrl,
@@ -106,7 +106,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                     }
                 })
             );
-            
+
             setImages(loadedImages.filter(img => img.url !== ''));
         } catch (error: any) {
             console.error('Lỗi khi tải ảnh khuôn mặt:', error);
@@ -122,18 +122,18 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
 
         try {
             setLoadingImages(true);
-            
+
             await employeesApi.deleteUserFace(employeeData.key, filename);
-            
+
             message.success('Delete image successful');
-            
+
             // Reload lại danh sách ảnh
             await fetchUserFaces(employeeData.key);
         } catch (error: any) {
             console.error('Error deleting image:', error);
-            const errorMessage = error.response?.data?.detail || 
-                                error.response?.data?.message || 
-                                'Failed to delete image';
+            const errorMessage = error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to delete image';
             message.error(errorMessage);
         } finally {
             setLoadingImages(false);
@@ -217,14 +217,14 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
     const handleCancel = () => {
         form.resetFields();
         setActiveTab('1');
-        
+
         // Cleanup: Revoke object URLs để giải phóng memory
         images.forEach(image => {
             if (image.url && image.url.startsWith('blob:')) {
                 URL.revokeObjectURL(image.url);
             }
         });
-        
+
         setImages([]);
         setFileList([]);
         onClose();
@@ -245,7 +245,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 message.error('File size must be less than 10MB!');
                 return false;
             }
-            
+
             // Thêm file vào fileList với originFileObj chính xác
             setFileList(prev => [...prev, {
                 uid: file.uid,
@@ -253,7 +253,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 status: 'done',
                 originFileObj: file,
             } as UploadFile]);
-            
+
             // Không upload tự động
             return false;
         },
@@ -309,7 +309,7 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                 const invalidDetails = meta.invalid_files
                     .map((f: any) => `${f.file}: ${f.reason}`)
                     .join('\n');
-                
+
                 message.warning({
                     content: (
                         <div>
@@ -333,9 +333,9 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
 
         } catch (error: any) {
             console.error('Error uploading image(s):', error);
-            const errorMessage = error.response?.data?.detail || 
-                                error.response?.data?.message || 
-                                'Failed to upload image(s)';
+            const errorMessage = error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to upload image(s)';
             message.error(errorMessage);
         } finally {
             setUploadingImages(false);

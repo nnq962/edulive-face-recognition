@@ -5,10 +5,10 @@ class FeatureConfig(BaseConfig):
     ENABLE_FACE_DETECTION: bool = True
     FACE_DETECTION_THRESHOLD: float = 0.65
     ENABLE_FACE_RECOGNITION: bool = True
-    FACE_RECOGNITION_THRESHOLD: float = 0.5
+    FACE_RECOGNITION_THRESHOLD: float = 0.58
     ENABLE_SHOW: bool = True
     LINE_THICKNESS: int = 3
-    ENABLE_VERBOSE: bool = True
+    ENABLE_VERBOSE: bool = False
 
     # Media manager config
     SOURCE: str = "ai_service/device.txt"
