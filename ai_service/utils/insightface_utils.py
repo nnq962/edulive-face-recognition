@@ -3,7 +3,7 @@ import cv2
 import pickle
 from insightface.utils import face_align
 from utils import LOGGER
-from config import paths, features
+from config import paths
 from typing import Optional, List
 import os
 
@@ -42,29 +42,20 @@ def search_ids(embeddings, top_k=1, threshold=0.5):
     Returns:
         list: Danh sách kết quả, với mỗi phần tử là một dictionary hoặc None nếu không có kết quả hợp lệ.
     """
-
-    # Chọn file test hoặc production
-    if features.ENABLE_TEST:
-        faiss_file_path = paths.FAISS_TEST_FILE_PATH
-        faiss_mapping_file_path = paths.FAISS_TEST_MAPPING_FILE_PATH
-    else:
-        faiss_file_path = paths.FAISS_FILE_PATH
-        faiss_mapping_file_path = paths.FAISS_MAPPING_FILE_PATH
-
     # Kiểm tra file tồn tại trước khi load
-    if not os.path.exists(faiss_file_path):
-        LOGGER.warning(f"Missing Faiss index file: {faiss_file_path}")
+    if not os.path.exists(paths.FAISS_FILE_PATH):
+        LOGGER.warning(f"Missing Faiss index file: {paths.FAISS_FILE_PATH}")
         return [None] * len(embeddings)
 
-    if not os.path.exists(faiss_mapping_file_path):
-        LOGGER.warning(f"Missing mapping file: {faiss_mapping_file_path}")
+    if not os.path.exists(paths.FAISS_MAPPING_FILE_PATH):
+        LOGGER.warning(f"Missing mapping file: {paths.FAISS_MAPPING_FILE_PATH}")
         return [None] * len(embeddings)
 
     # Load FAISS index
-    index = faiss.read_index(faiss_file_path)
+    index = faiss.read_index(paths.FAISS_FILE_PATH)
 
     # Load ánh xạ index -> ID
-    with open(faiss_mapping_file_path, "rb") as f:
+    with open(paths.FAISS_MAPPING_FILE_PATH, "rb") as f:
         index_to_id = pickle.load(f)
 
     from unidecode import unidecode

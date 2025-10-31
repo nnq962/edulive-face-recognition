@@ -9,7 +9,7 @@ from pathlib import Path
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from utils import LOGGER
 from config import paths
-import asyncio
+from unidecode import unidecode
 
 
 detector = InsightFaceDetector(
@@ -63,9 +63,13 @@ async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths
         for face in face_embeds:
             emb = np.array(face["embedding"], dtype=np.float32)
             all_embeddings.append(emb)
+
+            # Chuẩn hóa full_name sang tiếng Việt không dấu
+            full_name_normalized = unidecode(full_name)
+
             mapping.append({
                 "user_id": user_id,
-                "full_name": full_name,
+                "full_name": full_name_normalized,
             })
 
     if not all_embeddings:
