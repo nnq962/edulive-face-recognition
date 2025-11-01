@@ -16,6 +16,8 @@ insightface_detector = InsightFaceDetector(
     show=features.ENABLE_SHOW,
     thickness=features.LINE_THICKNESS,
     verbose=features.ENABLE_VERBOSE,
+    enable_face_data_save=features.ENABLE_FACE_DATA_SAVE,
+    face_data_save_interval_sec=features.FACE_DATA_SAVE_INTERVAL_SEC,
     media_manager=media_manager
 )
 

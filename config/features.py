@@ -8,14 +8,14 @@ class FeatureConfig(BaseConfig):
     FACE_RECOGNITION_THRESHOLD: float = 0.58
     ENABLE_SHOW: bool = True
     LINE_THICKNESS: int = 3
-    ENABLE_VERBOSE: bool = False
+    ENABLE_VERBOSE: bool = True
 
     # Media manager config
     SOURCE: str = "ai_service/device.txt"
     ENABLE_SAVE: bool = False
 
     # Data save config
-    ENABLE_FACE_DATA_SAVE: bool = False
-    FACE_DATA_SAVE_INTERVAL_SEC: int = 2
+    ENABLE_FACE_DATA_SAVE: bool = True
+    FACE_DATA_SAVE_INTERVAL_SEC: int = 1
 
 features = FeatureConfig()

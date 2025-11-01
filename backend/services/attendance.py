@@ -9,12 +9,17 @@ from openpyxl.utils import get_column_letter
 import tempfile
 import os
 
+from utils import LOGGER
 from backend.schemas.common import PaginationMeta
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 
 
 ATTENDANCE_COLLECTION = "attendances"
 USER_COLLECTION = "users"
+
+# Business constants
+CHECKOUT_TIME_HOUR = 17
+CHECKOUT_TIME_MINUTE = 30
 
 
 async def get_user_attendances(
@@ -561,3 +566,194 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
     wb.save(filepath)
     
     return filepath
+
+
+async def process_attendance_detections(
+    db: AsyncIOMotorDatabase,
+    timestamp: datetime,
+    detections: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """
+    Xử lý batch detections từ client và cập nhật database
+    
+    Business Logic:
+    1. Check-in: Lần đầu tiên trong ngày xuất hiện (trước 17h30)
+    2. Check-out: Sau 17h30, check_out_time luôn là timestamp cuối cùng
+    3. Welcome: Chỉ hiển thị 1 lần khi check-in đầu tiên
+    4. Goodbye: Sau 17h30 khi detect được
+    5. Sau 17h30: Không cho check-in nữa, check_in_time = None, chỉ có check-out
+    6. Bonus: check_in_time luôn là timestamp đầu tiên, 
+              check_out_time chỉ update sau 17h30 (luôn là timestamp cuối cùng)
+    
+    Args:
+        db: Database instance
+        timestamp: Thời điểm phát hiện (UTC)
+        detections: List[{user_id, camera_id, similarity}]
+    
+    Returns:
+        List[AttendanceActionResult]: Kết quả xử lý cho từng user
+    """
+    
+    # Đảm bảo timestamp có timezone UTC
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    
+    # Chuyển sang giờ Việt Nam (UTC+7) để check thời gian
+    vn_timezone = timezone(timedelta(hours=7))
+    timestamp_vn = timestamp.astimezone(vn_timezone)
+    LOGGER.debug(f"Timestamp in Vietnam: {timestamp_vn}")
+    
+    # Xác định xem có phải sau 17h30 không
+    is_after_checkout_time = (
+        timestamp_vn.hour > CHECKOUT_TIME_HOUR or 
+        (timestamp_vn.hour == CHECKOUT_TIME_HOUR and timestamp_vn.minute >= CHECKOUT_TIME_MINUTE)
+    )
+    
+    # Lấy ngày hiện tại (start of day UTC)
+    today_start = datetime(
+        timestamp_vn.year, 
+        timestamp_vn.month, 
+        timestamp_vn.day, 
+        0, 0, 0, 
+        tzinfo=timezone.utc
+    )
+    
+    results = []
+    
+    # Collections
+    attendances_collection = db[ATTENDANCE_COLLECTION]
+    users_collection = db[USER_COLLECTION]
+    
+    # Group detections by user_id để xử lý từng user
+    detections_by_user = {}
+    for detection in detections:
+        user_id = detection["user_id"]
+        if user_id not in detections_by_user:
+            detections_by_user[user_id] = []
+        detections_by_user[user_id].append(detection)
+    
+    # Xử lý từng user
+    for user_id, user_detections in detections_by_user.items():
+        try:
+            # Lấy thông tin user
+            user = await users_collection.find_one({"_id": ObjectId(user_id)})
+            if not user:
+                # Skip nếu user không tồn tại
+                continue
+            
+            full_name = user.get("full_name", "Unknown")
+            
+            # Tìm attendance record của user trong ngày hôm nay
+            existing_record = await attendances_collection.find_one({
+                "user_id": ObjectId(user_id),
+                "date": today_start
+            })
+            
+            # Tạo timestamps từ detections
+            new_timestamps = []
+            for detection in user_detections:
+                new_timestamps.append({
+                    "time": timestamp,
+                    "camera_id": detection["camera_id"],
+                    "similarity": detection["similarity"]
+                })
+            
+            action = ""
+            show_welcome = False
+            show_goodbye = False
+            message = None
+            
+            if existing_record:
+                # ĐÃ CÓ RECORD TRONG NGÀY
+                
+                # Luôn append timestamps mới vào
+                updated_timestamps = existing_record.get("timestamps", []) + new_timestamps
+                
+                if is_after_checkout_time:
+                    # SAU 17H30 - Chỉ update check_out_time
+                    action = "check_out"
+                    show_goodbye = True
+                    message = f"Tạm biệt {full_name}"
+                    
+                    # Update record
+                    await attendances_collection.update_one(
+                        {"_id": existing_record["_id"]},
+                        {
+                            "$set": {
+                                "check_out_time": timestamp,  # Luôn là timestamp cuối cùng
+                                "timestamps": updated_timestamps,
+                                "goodbye_noti": True  # Đã hiển thị goodbye
+                            }
+                        }
+                    )
+                else:
+                    # TRƯỚC 17H30 - Chỉ thêm timestamp, không update check_in/check_out
+                    action = "timestamp_added"
+                    show_welcome = False
+                    show_goodbye = False
+                    
+                    # Update record
+                    await attendances_collection.update_one(
+                        {"_id": existing_record["_id"]},
+                        {
+                            "$set": {
+                                "timestamps": updated_timestamps
+                            }
+                        }
+                    )
+            
+            else:
+                # CHƯA CÓ RECORD TRONG NGÀY - Tạo mới
+                
+                if is_after_checkout_time:
+                    # SAU 17H30 - Chỉ tạo check_out, không có check_in
+                    action = "after_hours_only"
+                    show_goodbye = True
+                    message = f"Tạm biệt {full_name}"
+                    
+                    new_record = {
+                        "date": today_start,
+                        "user_id": ObjectId(user_id),
+                        "full_name": full_name,
+                        "check_in_time": None,  # Không có check-in
+                        "check_out_time": timestamp,
+                        "timestamps": new_timestamps,
+                        "welcome_noti": False,
+                        "goodbye_noti": True
+                    }
+                else:
+                    # TRƯỚC 17H30 - Check-in đầu tiên
+                    action = "check_in"
+                    show_welcome = True
+                    message = f"Xin chào {full_name}"
+                    
+                    new_record = {
+                        "date": today_start,
+                        "user_id": ObjectId(user_id),
+                        "full_name": full_name,
+                        "check_in_time": timestamp,
+                        "check_out_time": None,  # Chưa có check-out
+                        "timestamps": new_timestamps,
+                        "welcome_noti": True,
+                        "goodbye_noti": False
+                    }
+                
+                # Insert record mới
+                await attendances_collection.insert_one(new_record)
+            
+            # Thêm kết quả
+            results.append({
+                "user_id": user_id,
+                "full_name": full_name,
+                "action": action,
+                "show_welcome": show_welcome,
+                "show_goodbye": show_goodbye,
+                "message": message
+            })
+        
+        except Exception as e:
+            # Log error nhưng vẫn tiếp tục xử lý các user khác
+            LOGGER.error(f"Error processing user {user_id}: {str(e)}")
+            continue
+    
+    return results

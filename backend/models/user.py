@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Literal
-from utils.time_helper import utc_now
+from utils.time_helper import vn_now_iso
 from datetime import datetime
 
 # ==================== Database Models ====================
@@ -42,4 +42,4 @@ class UserModel(BaseModel):
     face_embeddings: List[FaceEmbedding] = Field(default_factory=list)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=vn_now_iso)

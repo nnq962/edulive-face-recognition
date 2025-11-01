@@ -5,10 +5,21 @@ from datetime import datetime
 from typing import Optional, Literal
 from pathlib import Path
 
-from backend.schemas.attendance import AttendanceResponse, UserMonthlyAttendance
+from backend.schemas.attendance import (
+    AttendanceResponse, 
+    UserMonthlyAttendance,
+    AttendanceDetectionRequest,
+    AttendanceDetectionResponse
+)
 from backend.schemas.common import ApiError, PaginatedResponse
 from backend.utils.pagination import PaginationParams
-from backend.services.attendance import get_user_attendances, get_monthly_attendance_report, get_monthly_attendance_report_for_export, generate_excel_report
+from backend.services.attendance import (
+    get_user_attendances, 
+    get_monthly_attendance_report, 
+    get_monthly_attendance_report_for_export, 
+    generate_excel_report,
+    process_attendance_detections
+)
 from config.dependencies import get_db, get_current_active_user, require_admin
 from utils import LOGGER
 
@@ -68,7 +79,6 @@ async def get_my_attendances(
     """
     
     try:
-        LOGGER.info(f"Current user: {current_user}")
         # Khởi tạo service
         user_id = current_user["id"]
         
@@ -455,3 +465,118 @@ async def export_monthly_report_excel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error: {str(e)}"
         )
+
+
+# ==================== Process Attendance Detection API ====================
+@router.post(
+    "/detect",
+    response_model=AttendanceDetectionResponse,
+    summary="Xử lý batch detections từ client",
+    description="API nhận batch detections từ client (nhiều user, nhiều camera), xử lý logic chấm công và trả về kết quả cần hiển thị welcome/goodbye.",
+    responses={
+        400: {
+            "model": ApiError,
+            "description": "Bad Request (validation error)",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+    response_model_exclude_none=True,
+)
+async def process_detections(
+    request: AttendanceDetectionRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Xử lý batch detections từ client
+    
+    **Request Body:**
+    ```json
+    {
+      "timestamp": "2025-10-31T10:43:22Z",
+      "data": [
+        {
+          "user_id": "69009a95f8f19decdd27172a",
+          "camera_id": "CAM6",
+          "similarity": 0.95
+        },
+        {
+          "user_id": "69009a95f8f19decdd27172b",
+          "camera_id": "CAM7",
+          "similarity": 0.88
+        }
+      ]
+    }
+    ```
+    
+    **Business Logic:**
+    1. Check-in: Lần đầu tiên trong ngày xuất hiện (trước 17h30)
+    2. Check-out: Sau 17h30, check_out_time luôn là timestamp cuối cùng
+    3. Welcome: Chỉ hiển thị 1 lần khi check-in đầu tiên
+    4. Goodbye: Sau 17h30 khi detect được
+    5. Sau 17h30: Không cho check-in nữa, chỉ có check-out
+    6. check_in_time luôn là timestamp đầu tiên
+    7. check_out_time chỉ update sau 17h30
+    
+    **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Detection processed successfully",
+      "results": [
+        {
+          "user_id": "69009a95f8f19decdd27172a",
+          "full_name": "Nguyễn Ngọc Quyết",
+          "action": "check_in",
+          "show_welcome": true,
+          "show_goodbye": false,
+          "message": "Chào mừng Quyết đến công ty!"
+        }
+      ]
+    }
+    ```
+    
+    **Actions:**
+    - `check_in`: Check-in đầu tiên trong ngày
+    - `check_out`: Check-out sau 17h30
+    - `timestamp_added`: Chỉ thêm timestamp, không có welcome/goodbye
+    - `after_hours_only`: Sau 17h30 chỉ có check-out, không có check-in
+    """
+    
+    try:
+        LOGGER.info(f"Processing {len(request.data)} detections at {request.timestamp}")
+        
+        # Convert Pydantic models sang dict để truyền vào service
+        detections = [
+            {
+                "user_id": item.user_id,
+                "camera_id": item.camera_id,
+                "similarity": item.similarity
+            }
+            for item in request.data
+        ]
+        
+        # Gọi service xử lý
+        results = await process_attendance_detections(
+            db=db,
+            timestamp=request.timestamp,
+            detections=detections
+        )
+        
+        LOGGER.info(f"Successfully processed {len(results)} users")
+        
+        return AttendanceDetectionResponse(
+            success=True,
+            message=f"Successfully processed {len(results)} detections",
+            results=results
+        )
+        
+    except Exception as e:
+        LOGGER.error(f"Error processing detections: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing detections: {str(e)}"
+        )
+

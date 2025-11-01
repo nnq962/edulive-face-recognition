@@ -1,20 +1,32 @@
-import cv2
 import platform
-from insightface.model_zoo import model_zoo
-from pathlib import Path
-import time
-import numpy as np
-from ai_service.utils.insightface_utils import crop_and_align_faces, normalize_embeddings, search_ids, crop_image, FaceRecognitionResult
-from ai_service.utils.plots import Annotator
-from utils import LOGGER
-from config import paths
-import threading
 import queue
+import threading
+import time
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+import cv2
+import numpy as np
 import onnxruntime as ort
+import requests
+from insightface.model_zoo import model_zoo
+
+from ai_service.utils.insightface_utils import (
+    FaceRecognitionResult,
+    crop_and_align_faces,
+    crop_image,
+    normalize_embeddings,
+    search_ids,
+)
+from ai_service.utils.plots import Annotator
+from config import network, paths
+from utils import LOGGER
+from utils.time_helper import vn_now_iso
+
 ort.set_default_logger_severity(3)
 
+ATTENDANCE_API_URL = network.ATTENDANCE_API_URL
 
 @dataclass
 class DetectionBatchResult:
@@ -52,6 +64,32 @@ class RecognitionBatchResult:
     timestamp: float
     frame_id: int
     processing_time: float
+    
+    def to_api_payload(self) -> dict:
+        """
+        Convert sang format API để gửi lên backend.
+        
+        Returns:
+            dict: Payload theo format API
+        """
+        data = []
+        
+        for source_idx, results in enumerate(self.results_per_source):
+            source_id = self.source_ids[source_idx]
+            camera_id = f"CAM_{source_id}"
+            
+            for result in results:
+                if result is not None:  # Bỏ qua None
+                    data.append({
+                        "user_id": result.user_id,
+                        "camera_id": camera_id,
+                        "similarity": result.similarity
+                    })
+
+        return {
+            "timestamp": vn_now_iso(),
+            "data": data
+        }
 
 
 class ThreadedInferenceState:
@@ -68,7 +106,11 @@ class ThreadedInferenceState:
         self.detection_output_queue = queue.Queue(maxsize=1)
         self.recognition_input_queue = queue.Queue(maxsize=1)
         self.recognition_output_queue = queue.Queue(maxsize=1)
-
+        
+        # API sender queue và state
+        self.api_queue = queue.Queue(maxsize=10)  # Queue cho API requests
+        self.last_api_send_time = 0  # Timestamp của lần gửi cuối
+        
 
 class InsightFaceDetector:
     """
@@ -84,12 +126,16 @@ class InsightFaceDetector:
         thickness=3,
         verbose=False,
         media_manager=None,
+        enable_face_data_save=False,
+        face_data_save_interval_sec=2,
+
     ):
         self.face_detection = face_detection
         self.face_detection_threshold = face_detection_threshold
         self.face_recognition = face_recognition
         self.face_recognition_threshold = face_recognition_threshold
-
+        self.enable_face_data_save = enable_face_data_save
+        self.face_data_save_interval_sec = face_data_save_interval_sec
         if self.face_recognition is True and self.face_detection is False:
             raise ValueError("Face recognition requires face detection")
 
@@ -121,6 +167,7 @@ class InsightFaceDetector:
         self.state = ThreadedInferenceState()
         self.detection_thread = None
         self.recognition_thread = None
+        self.api_sender_thread = None
 
     def load_model(self):
         """Load detection and recognition models"""
@@ -387,6 +434,57 @@ class InsightFaceDetector:
         
         LOGGER.info("Recognition thread stopped")
 
+    def _api_sender_worker(self):
+        """API sender thread worker - gửi data lên backend (chạy ở background)"""
+        LOGGER.info("API sender thread started")
+        
+        while self.state.running:
+            try:
+                # Lấy payload từ queue (blocking với timeout)
+                payload = self.state.api_queue.get(timeout=0.5)
+                
+                if payload is None:  # Shutdown signal
+                    break
+                
+                # Kiểm tra nếu không có data thì bỏ qua
+                if not payload.get("data"):
+                    continue
+                
+                try:
+                    # Gửi API request
+                    response = requests.post(
+                        ATTENDANCE_API_URL,
+                        json=payload,
+                        timeout=5.0  # Timeout 5s
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if self.verbose:
+                            LOGGER.info(f"API Response: {result.get('message', 'Success')} | {len(result.get('results', []))} users processed")
+                            
+                            # Hiển thị welcome/goodbye messages
+                            for user_result in result.get('results', []):
+                                if user_result.get('show_welcome'):
+                                    LOGGER.info(f"\ud83d\udc4b {user_result.get('message', '')}")
+                                elif user_result.get('show_goodbye'):
+                                    LOGGER.info(f"\ud83d\udc4b {user_result.get('message', '')}")
+                    else:
+                        LOGGER.warning(f"API request failed with status {response.status_code}")
+                        
+                except requests.exceptions.Timeout:
+                    LOGGER.warning("API request timeout")
+                except requests.exceptions.RequestException as e:
+                    LOGGER.error(f"API request error: {e}")
+                    
+            except queue.Empty:
+                continue
+            except Exception as e:
+                LOGGER.error(f"API sender worker error: {e}")
+                continue
+        
+        LOGGER.info("API sender thread stopped")
+
     def start_threads(self):
         """Start detection and recognition threads"""
         self.state.running = True
@@ -400,6 +498,11 @@ class InsightFaceDetector:
         if self.face_recognition:
             self.recognition_thread = threading.Thread(target=self._recognition_worker, daemon=True)
             self.recognition_thread.start()
+            
+            # Start API sender thread (chỉ khi có recognition và enable_face_data_save là True)
+            if self.enable_face_data_save:
+                self.api_sender_thread = threading.Thread(target=self._api_sender_worker, daemon=True)
+                self.api_sender_thread.start()
         
         LOGGER.info("Sequential pipeline threads started")
 
@@ -417,12 +520,19 @@ class InsightFaceDetector:
             self.state.recognition_input_queue.put_nowait(None)
         except queue.Full:
             pass
+            
+        try:
+            self.state.api_queue.put_nowait(None)
+        except queue.Full:
+            pass
         
         # Wait for threads to finish
         if self.detection_thread:
             self.detection_thread.join(timeout=2.0)
         if self.recognition_thread:
             self.recognition_thread.join(timeout=2.0)
+        if self.api_sender_thread:
+            self.api_sender_thread.join(timeout=2.0)
             
         LOGGER.info("Sequential pipeline threads stopped")
 
@@ -492,13 +602,57 @@ class InsightFaceDetector:
         """Kiểm tra và cache kết quả recognition (non-blocking)"""
         try:
             recognition_result = self.state.recognition_output_queue.get_nowait()
+
             # Cache kết quả (detection + recognition cùng frame)
             self.state.cached_result = recognition_result
+
             # Recognition complete, release pipeline lock
             self.state.pipeline_busy.release()
             
+            # Gửi API nếu đủ thời gian throttle
+            self._try_send_to_api(recognition_result)
+            
         except queue.Empty:
             pass
+    
+    def _try_send_to_api(self, recognition_result: RecognitionBatchResult):
+        """
+        Thử gửi kết quả recognition lên API (với throttling)
+        
+        Args:
+            recognition_result: Kết quả recognition mới nhất
+        """
+        current_time = time.time()
+        
+        # Kiểm tra throttle: chỉ gửi nếu đã quá interval
+        if current_time - self.state.last_api_send_time < self.face_data_save_interval_sec:
+            return
+        
+        # Kiểm tra nếu có data (có ít nhất 1 user được nhận diện)
+        has_data = any(
+            len([r for r in results if r is not None]) > 0 
+            for results in recognition_result.results_per_source
+        )
+        
+        if not has_data:
+            return
+        
+        try:
+            # Tạo payload
+            payload = recognition_result.to_api_payload()
+            
+            # Gửi vào queue (non-blocking)
+            self.state.api_queue.put_nowait(payload)
+            
+            # Cập nhật thời gian gửi cuối
+            self.state.last_api_send_time = current_time
+            
+            if self.verbose:
+                LOGGER.info(f"Queued API request with {len(payload['data'])} detections")
+                
+        except queue.Full:
+            if self.verbose:
+                LOGGER.warning("API queue full, skipping this batch")
 
     def _process_pipeline(self, frames, frame_id):
         """
