@@ -763,13 +763,15 @@ async def process_attendance_detections(
                             # Check-in message
                             telegram_message = (
                                 f"👋 <b>Xin chào {full_name}!</b>\n\n"
-                                f"✅ Đã check-in thành công lúc: {timestamp_vn_str}"
+                                f"🕐 Thời gian: {timestamp_vn_str}\n"
+                                f"✅ Đã check-in thành công"
                             )
                         else:  # send_goodbye
                             # Check-out message
                             telegram_message = (
                                 f"👋 <b>Tạm biệt {full_name}!</b>\n\n"
-                                f"✅ Đã check-out thành công lúc: {timestamp_vn_str}"
+                                f"🕐 Thời gian: {timestamp_vn_str}\n"
+                                f"✅ Đã check-out thành công"
                             )
                         
                         await send_telegram_message_to_user(

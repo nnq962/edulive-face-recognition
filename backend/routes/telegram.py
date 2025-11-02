@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/telegram", tags=["Telegram"])
 SUBSCRIBE_COMMAND = "Đăng ký"
 UNSUBSCRIBE_COMMAND = "Hủy đăng ký"
 HELP_COMMAND = "Help"
+STATUS_COMMAND = "Status"
 
 def normalize_command(text: str) -> str:
     """
@@ -184,10 +185,48 @@ async def telegram_webhook(
                 "📋 Các lệnh được hỗ trợ:\n\n"
                 f"• {SUBSCRIBE_COMMAND} - Đăng ký nhận thông báo từ hệ thống\n"
                 f"• {UNSUBSCRIBE_COMMAND} - Hủy đăng ký nhận thông báo\n"
+                f"• {STATUS_COMMAND} - Xem trạng thái tài khoản\n"
                 f"• {HELP_COMMAND} - Xem danh sách các lệnh này\n\n"
                 "💡 Bạn có thể gõ lệnh không phân biệt hoa thường."
             )
             LOGGER.debug(f"User {telegram_username} requested help")
+        
+        elif matches_command(text, STATUS_COMMAND):
+            # Hiển thị trạng thái user
+            full_name = user.get("full_name", "Unknown")
+            user_telegram_username = user.get("telegram_username", "Chưa cấu hình")
+            user_role = user.get("role", "Unknown")
+            user_is_active = user.get("is_active", False)
+            user_department = user.get("department", "Chưa có")
+            user_position = user.get("position", "Chưa có")
+            user_chat_id = user.get("telegram_chat_id")
+            
+            # Format status message với HTML
+            status_message = (
+                f"📊 <b>Trạng thái tài khoản</b>\n\n"
+                f"👤 <b>Họ tên:</b> {full_name}\n"
+                f"🔖 <b>Telegram:</b> @{user_telegram_username}\n"
+                f"💼 <b>Chức vụ:</b> {user_position}\n"
+                f"🏢 <b>Phòng ban:</b> {user_department}\n"
+                f"👑 <b>Vai trò:</b> {user_role}\n\n"
+                f"🔔 <b>Trạng thái thông báo:</b> "
+            )
+            
+            if is_subscribed:
+                status_message += "Đã đăng ký"
+                if user_chat_id:
+                    status_message += f"\n💬 <b>Chat ID:</b> {user_chat_id}"
+            else:
+                status_message += "Chưa đăng ký"
+            
+            status_message += f"\n\n🟢 <b>Trạng thái tài khoản:</b> {'Hoạt động' if user_is_active else 'Tạm khóa'}"
+            
+            await send_telegram_message(
+                chat_id,
+                status_message,
+                parse_mode="HTML"
+            )
+            LOGGER.debug(f"User {telegram_username} requested status")
         
         else:
             # Tin nhắn không phải lệnh hợp lệ
@@ -215,6 +254,7 @@ async def webhook_info():
         "commands": {
             "subscribe": SUBSCRIBE_COMMAND,
             "unsubscribe": UNSUBSCRIBE_COMMAND,
+            "status": STATUS_COMMAND,
             "help": HELP_COMMAND,
         },
         "description": "Endpoint để nhận webhook từ Telegram Bot",
