@@ -26,7 +26,6 @@ import asyncio
 import numpy as np
 
 
-
 USER_COLLECTION = "users"
 DEFAULT_PASSWORD = "123456"
 EMAIL_DOMAIN = "@edulive.net"
@@ -155,10 +154,31 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
         # 3. Sinh email từ username
         email = generate_email(username)
         
-        # 4. Hash password mặc định
+        # 4. Kiểm tra telegram_username unique (nếu có)
+        telegram_username = None
+        if user_data.telegram_username and user_data.telegram_username.strip():
+            # Loại bỏ @ nếu có ở đầu
+            telegram_username = user_data.telegram_username.strip().lstrip('@')
+            
+            # Kiểm tra xem có user nào đã sử dụng telegram_username này chưa
+            existing_user_with_telegram = await users_collection.find_one({
+                "telegram_username": telegram_username
+            })
+            
+            if existing_user_with_telegram:
+                LOGGER.warning(
+                    f"Telegram username {telegram_username} already exists for user "
+                    f"{existing_user_with_telegram.get('_id')}"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Telegram username {telegram_username} already exists"
+                )
+        
+        # 5. Hash password mặc định
         hashed_password = hash_password(DEFAULT_PASSWORD)
         
-        # 5. Tạo user document
+        # 6. Tạo user document
         new_user = UserModel(
             username=username,
             email=email,
@@ -167,28 +187,28 @@ async def create_user(db: AsyncIOMotorDatabase, user_data: UserCreate) -> dict:
             role=user_data.role,
             position=user_data.position,
             department=user_data.department,
-            telegram_username=user_data.telegram_username,
+            telegram_username=telegram_username,
         )
 
-        # 6. Insert vào database
+        # 7. Insert vào database
         result = await users_collection.insert_one(new_user.model_dump())
 
-        # 7. Lấy user vừa tạo
+        # 8. Lấy user vừa tạo
         created_user = await users_collection.find_one({"_id": result.inserted_id})
         created_user["_id"] = str(created_user["_id"])
         data_directory = paths.USERS_DATA_DIR / created_user["_id"]
 
-        # 8. Cập nhật data_directory vào user
+        # 9. Cập nhật data_directory vào user
         await users_collection.update_one(
             {"_id": ObjectId(created_user["_id"])},
             {"$set": {"data_directory": str(data_directory)}},
         )
 
-        # 9. Tạo thư mục user data
+        # 10. Tạo thư mục user data
         os.makedirs(data_directory, exist_ok=True)
         LOGGER.info(f"Created user directory: {data_directory}")
 
-        # 10. Gắn thêm field vào object trả về
+        # 11. Gắn thêm field vào object trả về
         created_user["data_directory"] = str(data_directory)
 
         return created_user
@@ -228,9 +248,6 @@ async def fetch_users_with_pagination(
     
     # Build query từ filters
     query = filters.build_query()
-    
-    LOGGER.debug(f"Query: {query}")
-    LOGGER.debug(f"Pagination: page={pagination.page}, limit={pagination.limit}, sort={pagination.sort}, order={pagination.order}")
     
     # Get total count
     total = await users_collection.count_documents(query)
@@ -342,9 +359,6 @@ async def update_user(
             return None
 
         # Chuẩn bị dữ liệu cập nhật
-        # Dùng `exclude_unset=True` là cách chuẩn của Pydantic để
-        # chỉ lấy các trường được client gửi lên (chuẩn cho PATCH)
-        # Sạch hơn nhiều so với list comprehension và k != "id"
         update_fields = payload.model_dump(exclude_unset=True)
 
         # Nếu không có trường nào được gửi lên để cập nhật
@@ -353,6 +367,38 @@ async def update_user(
             return None
             # Bạn có thể return ngay ở đây nếu muốn
             # Hoặc cứ chạy tiếp để cập nhật `updated_at`
+        
+        # Kiểm tra telegram_username unique (nếu có trong update_fields)
+        if "telegram_username" in update_fields:
+            telegram_username = update_fields.get("telegram_username")
+            
+            # Nếu telegram_username không phải None và không rỗng
+            if telegram_username and telegram_username.strip():
+                # Loại bỏ @ nếu có ở đầu
+                username = telegram_username.strip().lstrip('@')
+                
+                # Kiểm tra xem có user nào khác đã sử dụng telegram_username này chưa
+                # (trừ user hiện tại đang được update)
+                existing_user_with_telegram = await users_collection.find_one({
+                    "telegram_username": username,
+                    "_id": {"$ne": object_id}  # Loại trừ user hiện tại
+                })
+                
+                if existing_user_with_telegram:
+                    LOGGER.warning(
+                        f"Telegram username {username} already exists for user "
+                        f"{existing_user_with_telegram.get('_id')}"
+                    )
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Telegram username {username} already exists"
+                    )
+                
+                # Cập nhật lại update_fields với username đã được normalize
+                update_fields["telegram_username"] = username
+            else:
+                # Nếu telegram_username là None hoặc rỗng, cho phép xóa nó
+                update_fields["telegram_username"] = None
         
         update_fields["updated_at"] = utc_now()
 

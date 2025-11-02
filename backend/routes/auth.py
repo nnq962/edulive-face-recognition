@@ -93,7 +93,6 @@ async def refresh_token(request: RefreshRequest):
     },
 )
 async def get_me(current_user: dict = Depends(get_current_active_user)):
-    LOGGER.info(f"Current user: {current_user}")
     return ApiResponse(
         success=True,
         message="User info",

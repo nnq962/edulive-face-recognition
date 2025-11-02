@@ -81,3 +81,4 @@ dist/
 # Folder
 data/
 ai_models/
+audio_cache/

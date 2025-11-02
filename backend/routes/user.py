@@ -563,24 +563,58 @@ async def update_my_telegram_username(
 ):
     """
     Cập nhật telegram username cho chính user đang đăng nhập.
+    - Đảm bảo telegram_username là unique (không trùng với user khác)
     """
 
     new_username = payload.telegram_username.strip()
     if not new_username:
         raise HTTPException(status_code=400, detail="Telegram username is required")
 
-    LOGGER.info(f"Current user: {current_user}")
-    LOGGER.info(f"Payload: {payload}")
+    # Loại bỏ @ nếu có ở đầu
+    normalized_username = new_username.lstrip('@')
 
+    # Lấy user_id hiện tại
+    current_user_id = ObjectId(current_user["id"])
+
+    # Lấy thông tin user hiện tại từ database
+    current_user_doc = await db[USER_COLLECTION].find_one({"_id": current_user_id})
+    if not current_user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Kiểm tra xem telegram_username có thay đổi không
+    if current_user_doc.get("telegram_username") == normalized_username:
+        # Không có thay đổi
+        return ApiResponse[None](
+            success=True,
+            message="Telegram username unchanged",
+            data=None,
+        )
+
+    # Kiểm tra xem có user nào khác đã sử dụng telegram_username này chưa
+    # (trừ user hiện tại đang được update)
+    existing_user_with_telegram = await db[USER_COLLECTION].find_one({
+        "telegram_username": normalized_username,
+        "_id": {"$ne": current_user_id}  # Loại trừ user hiện tại
+    })
+
+    if existing_user_with_telegram:
+        LOGGER.warning(
+            f"Telegram username {normalized_username} already exists for user "
+            f"{existing_user_with_telegram.get('_id')}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Telegram username {normalized_username} already exists"
+        )
+
+    # Cập nhật telegram_username
     result = await db[USER_COLLECTION].update_one(
-        {"_id": ObjectId(current_user["id"])},
-        {"$set": {"telegram_username": new_username}},
+        {"_id": current_user_id},
+        {"$set": {"telegram_username": normalized_username}},
     )
 
     if result.modified_count == 0:
         raise HTTPException(status_code=400, detail="No changes were made")
-
-    LOGGER.info(f"User {current_user['id']} updated telegram username to {new_username}")
 
     return ApiResponse[None](
         success=True,
@@ -621,7 +655,6 @@ async def change_my_password_route(
     """
     Cho phép user hiện tại tự đổi mật khẩu.
     """
-    LOGGER.info(f"Payload: {payload}")
 
     await change_user_password(
         db=db,
