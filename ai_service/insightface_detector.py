@@ -481,29 +481,26 @@ class InsightFaceDetector:
                     
                     if response.status_code == 200:
                         result = response.json()
-                        if self.verbose:
-                            LOGGER.info(f"API Response: {result.get('message', 'Success')} | {len(result.get('results', []))} users processed")
-                            
-                            # Hiển thị welcome/goodbye messages
-                            for user_result in result.get('results', []):
-                                if user_result.get('send_welcome'):
-                                    LOGGER.info(f"{user_result.get('message', '')}")
+                        # Hiển thị welcome/goodbye messages
+                        for user_result in result.get('results', []):
+                            if user_result.get('send_welcome'):
+                                LOGGER.info(f"{user_result.get('message', '')}")
 
-                                    send_notification(
-                                        message=user_result.get('message', ''),
-                                        host=HOST,
-                                        control_port=CONTROL_PORT,
-                                        secret_key=SECRET_KEY
-                                    )
-                                elif user_result.get('send_goodbye'):
-                                    LOGGER.info(f"{user_result.get('message', '')}")
+                                send_notification(
+                                    message=user_result.get('message', ''),
+                                    host=HOST,
+                                    control_port=CONTROL_PORT,
+                                    secret_key=SECRET_KEY
+                                )
+                            elif user_result.get('send_goodbye'):
+                                LOGGER.info(f"{user_result.get('message', '')}")
 
-                                    send_notification(
-                                        message=user_result.get('message', ''),
-                                        host=HOST,
-                                        control_port=CONTROL_PORT,
-                                        secret_key=SECRET_KEY
-                                    )
+                                send_notification(
+                                    message=user_result.get('message', ''),
+                                    host=HOST,
+                                    control_port=CONTROL_PORT,
+                                    secret_key=SECRET_KEY
+                                )
                     elif response.status_code == 401:
                         LOGGER.error(f"Authentication failed: Invalid API key")
                     else:

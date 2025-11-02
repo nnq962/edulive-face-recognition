@@ -12,7 +12,7 @@ import os
 from utils import LOGGER
 from backend.schemas.common import PaginationMeta
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
-
+from backend.services.telegram import send_telegram_message_to_user
 
 ATTENDANCE_COLLECTION = "attendances"
 USER_COLLECTION = "users"
@@ -750,6 +750,38 @@ async def process_attendance_detections(
                 
                 # Insert record mới
                 await attendances_collection.insert_one(new_record)
+            
+            # Gửi Telegram message nếu cần
+            if (send_welcome or send_goodbye) and message:
+                # Kiểm tra user có đăng ký Telegram và có chat_id không
+                if user.get("telegram_subscribed", False) and user.get("telegram_chat_id"):
+                    try:
+                        # Format message đẹp cho Telegram (khác với message trong results)
+                        timestamp_vn_str = timestamp_vn.strftime("%H:%M:%S - %d/%m/%Y")
+                        
+                        if send_welcome:
+                            # Check-in message
+                            telegram_message = (
+                                f"👋 <b>Xin chào {full_name}!</b>\n\n"
+                                f"✅ Đã check-in thành công lúc: {timestamp_vn_str}"
+                            )
+                        else:  # send_goodbye
+                            # Check-out message
+                            telegram_message = (
+                                f"👋 <b>Tạm biệt {full_name}!</b>\n\n"
+                                f"✅ Đã check-out thành công lúc: {timestamp_vn_str}"
+                            )
+                        
+                        await send_telegram_message_to_user(
+                            db,
+                            user_id,
+                            telegram_message,
+                            parse_mode="HTML"
+                        )
+                        LOGGER.info(f"Sent Telegram message to user {user_id} ({full_name}): {message}")
+                    except Exception as e:
+                        # Log lỗi nhưng không làm gián đoạn quá trình xử lý
+                        LOGGER.error(f"Failed to send Telegram message to user {user_id}: {e}")
             
             # Thêm kết quả
             results.append({

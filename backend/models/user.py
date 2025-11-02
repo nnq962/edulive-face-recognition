@@ -32,6 +32,7 @@ class UserModel(BaseModel):
     # Contact
     telegram_username: Optional[str] = Field(default=None, max_length=50)
     telegram_chat_id: Optional[str] = Field(default=None, max_length=50)
+    telegram_subscribed: bool = Field(default=False)
     
     # Status
     is_active: bool = Field(default=True)
