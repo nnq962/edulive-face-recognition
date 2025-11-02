@@ -8,17 +8,8 @@ import argparse
 import queue
 from gtts import gTTS
 import subprocess
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from utils.logger_config import LOGGER
-import yaml  # Thêm import yaml
-
-# Đường dẫn đến file cấu hình
-CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml'))
-
-# Cấu hình mặc định
-DEFAULT_HOST = '192.168.1.142'
-DEFAULT_PORT = 9624
+from utils import LOGGER
+from audio_notifications.config import HOST, PORT, DEFAULT_HOST, DEFAULT_PORT
 
 class NotificationClient:
     def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, reconnect_interval=5):
@@ -65,6 +56,7 @@ class NotificationClient:
             LOGGER.warning("Trên Ubuntu/Debian: sudo apt install sox libsox-fmt-all")
             LOGGER.warning("Trên Fedora: sudo dnf install sox sox-plugins-all")
             LOGGER.warning("Trên Arch Linux: sudo pacman -S sox")
+            LOGGER.warning("Trên macOS: brew install sox")
 
     def load_cache_metadata(self):
         """Tải metadata của cache từ tệp JSON"""
@@ -554,51 +546,9 @@ def run_client(host=DEFAULT_HOST, port=DEFAULT_PORT):
     finally:
         client.stop()
 
-def load_config(config_name=None, config_file=CONFIG_FILE):
-    """
-    Tải cấu hình từ file YAML
-    
-    Args:
-        config_name (str, optional): Tên cấu hình cần tải, nếu để None sẽ tải toàn bộ
-        config_file (str, optional): Đường dẫn file cấu hình. Mặc định là CONFIG_FILE
-        
-    Returns:
-        dict: Cấu hình được tải
-    """
-    try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            all_configs = yaml.safe_load(f)
-            
-            if config_name is None:
-                return all_configs
-            elif config_name in all_configs:
-                return all_configs[config_name]
-            else:
-                available_configs = ", ".join(all_configs.keys())
-                LOGGER.error(f"Không tìm thấy cấu hình '{config_name}'. Các cấu hình có sẵn: {available_configs}")
-                return None
-    except Exception as e:
-        LOGGER.error(f"Lỗi khi đọc file cấu hình: {e}")
-        return None
-
 if __name__ == "__main__":
-    # Thiết lập parser tham số dòng lệnh - chỉ nhận một tham số config
-    parser = argparse.ArgumentParser(description='Notification Client')
-    parser.add_argument('--config', type=str, required=True, help='Configuration profile to use (e.g., 3HINC, EDULIVE)')
-    
-    args = parser.parse_args()
-    config_name = args.config
-    
-    # Đọc file cấu hình
-    config = load_config(config_name)
-    if config is None:
-        sys.exit(1)
-    
-    host = config.get("host", DEFAULT_HOST)
-    port = config.get("noti_port", DEFAULT_PORT)
-    
-    LOGGER.info(f"Loaded configuration for '{config_name}'")
-    LOGGER.info(f"Host: {host}, Port: {port}")
+    # Sử dụng cấu hình mặc định từ config.py
+    LOGGER.info(f"Host: {HOST}, Port: {PORT}")
     
     # Khởi động client
-    run_client(host=host, port=port)
+    run_client(host=HOST, port=PORT)

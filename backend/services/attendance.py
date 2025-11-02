@@ -673,19 +673,28 @@ async def process_attendance_detections(
                 if is_after_checkout_time:
                     # SAU 17H30 - Chỉ update check_out_time
                     action = "check_out"
-                    send_goodbye = True
-                    message = f"Tạm biệt {full_name}"
                     
-                    # Update record
+                    # Chỉ gửi goodbye nếu chưa gửi trước đó
+                    if not existing_record.get("goodbye_noti", False):
+                        send_goodbye = True
+                        message = f"Tạm biệt {full_name}"
+                    else:
+                        send_goodbye = False
+                        message = None
+                    
+                    # Update record - luôn update check_out_time và timestamps
+                    update_data = {
+                        "check_out_time": timestamp,  # Luôn là timestamp cuối cùng
+                        "timestamps": updated_timestamps
+                    }
+                    
+                    # Chỉ set goodbye_noti = True nếu chưa set trước đó
+                    if not existing_record.get("goodbye_noti", False):
+                        update_data["goodbye_noti"] = True
+                    
                     await attendances_collection.update_one(
                         {"_id": existing_record["_id"]},
-                        {
-                            "$set": {
-                                "check_out_time": timestamp,  # Luôn là timestamp cuối cùng
-                                "timestamps": updated_timestamps,
-                                "goodbye_noti": True  # Đã hiển thị goodbye
-                            }
-                        }
+                        {"$set": update_data}
                     )
                 else:
                     # TRƯỚC 17H30 - Chỉ thêm timestamp, không update check_in/check_out

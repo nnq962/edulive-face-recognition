@@ -2,23 +2,8 @@ import socket
 import time
 import threading
 import json
-import yaml
-import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from utils import LOGGER
-import argparse
-import sys
-
-# Đường dẫn đến file cấu hình
-CONFIG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'config.yaml'))
-
-# Đọc cấu hình mặc định - được sử dụng nếu không chỉ định config hoặc không tìm thấy
-DEFAULT_HOST = '192.168.1.142'
-DEFAULT_PORT = 14678
-DEFAULT_CONTROL_PORT = 14679
-ALLOWED_IPS = []
-SECRET_KEY = "3hinc14679"
+from audio_notifications.config import HOST, PORT, CONTROL_PORT, SECRET_KEY, ALLOWED_IPS, DEFAULT_HOST, DEFAULT_PORT, DEFAULT_CONTROL_PORT
 
 
 class NotificationServer:
@@ -368,62 +353,13 @@ def get_server_status():
         return {"running": True, "client_count": client_count}
     return {"running": False, "client_count": 0}
 
-def load_config(config_name=None, config_file=CONFIG_FILE):
-    """
-    Tải cấu hình từ file YAML
-    
-    Args:
-        config_name (str, optional): Tên cấu hình cần tải, nếu để None sẽ tải toàn bộ
-        config_file (str, optional): Đường dẫn file cấu hình. Mặc định là CONFIG_FILE
-        
-    Returns:
-        dict: Cấu hình được tải
-    """
-    try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            all_configs = yaml.safe_load(f)
-            
-            if config_name is None:
-                return all_configs
-            elif config_name in all_configs:
-                return all_configs[config_name]
-            else:
-                available_configs = ", ".join(all_configs.keys())
-                LOGGER.error(f"Không tìm thấy cấu hình '{config_name}'. Các cấu hình có sẵn: {available_configs}")
-                return None
-    except Exception as e:
-        LOGGER.error(f"Lỗi khi đọc file cấu hình: {e}")
-        return None
-
 if __name__ == "__main__":
-    # Thiết lập parser tham số dòng lệnh - chỉ nhận một tham số config
-    parser = argparse.ArgumentParser(description='Notification Server')
-    parser.add_argument('--config', type=str, required=True, help='Configuration profile to use (e.g., 3HINC, EDULIVE)')
-    
-    args = parser.parse_args()
-    config_name = args.config
-    
-    # Đọc file cấu hình
-    config = load_config(config_name)
-    if config is None:
-        sys.exit(1)
-    
-    host = config.get("host", DEFAULT_HOST)
-    port = config.get("noti_port", DEFAULT_PORT)
-    control_port = config.get("noti_control_port", DEFAULT_CONTROL_PORT)
-    allowed_ips = config.get("noti_allowed_ips", ALLOWED_IPS)
-    secret_key = config.get("noti_secret_key", SECRET_KEY)
-    
-    LOGGER.info(f"Loaded configuration for '{config_name}'")
-    LOGGER.info(f"Host: {host}, Port: {port}, Control Port: {control_port}")
-    LOGGER.info(f"Allowed IPs: {', '.join(allowed_ips) if allowed_ips else 'All'}")
-    
-    # Cập nhật biến toàn cục
-    ALLOWED_IPS = allowed_ips
-    SECRET_KEY = secret_key
+    # Sử dụng cấu hình mặc định từ config.py
+    LOGGER.info(f"Host: {HOST}, Port: {PORT}, Control Port: {CONTROL_PORT}")
+    LOGGER.info(f"Allowed IPs: {', '.join(ALLOWED_IPS) if ALLOWED_IPS else 'All'}")
     
     # Khởi động server
-    start_server(host=host, port=port, control_port=control_port)
+    start_server(host=HOST, port=PORT, control_port=CONTROL_PORT)
     
     try:
         while True:

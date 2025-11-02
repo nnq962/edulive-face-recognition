@@ -23,6 +23,8 @@ from ai_service.utils.plots import Annotator
 from config import network, paths, keys
 from utils import LOGGER
 from utils.time_helper import utc_now_iso
+from audio_notifications.notification_server import send_notification
+from audio_notifications.config import HOST, CONTROL_PORT, SECRET_KEY
 
 ort.set_default_logger_severity(3)
 
@@ -486,8 +488,22 @@ class InsightFaceDetector:
                             for user_result in result.get('results', []):
                                 if user_result.get('send_welcome'):
                                     LOGGER.info(f"{user_result.get('message', '')}")
+
+                                    send_notification(
+                                        message=user_result.get('message', ''),
+                                        host=HOST,
+                                        control_port=CONTROL_PORT,
+                                        secret_key=SECRET_KEY
+                                    )
                                 elif user_result.get('send_goodbye'):
                                     LOGGER.info(f"{user_result.get('message', '')}")
+
+                                    send_notification(
+                                        message=user_result.get('message', ''),
+                                        host=HOST,
+                                        control_port=CONTROL_PORT,
+                                        secret_key=SECRET_KEY
+                                    )
                     elif response.status_code == 401:
                         LOGGER.error(f"Authentication failed: Invalid API key")
                     else:
