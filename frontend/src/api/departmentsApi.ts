@@ -8,19 +8,19 @@ const departmentsApi = {
         sort?: string;
         order?: 'asc' | 'desc';
         search?: string;
-    }) => axiosClient.get("/departments", { params }),
+    }) => axiosClient.get("/departments/", { params }),
 
     // Tạo department mới
     createDepartment: (data: { name: string }) => 
-        axiosClient.post("/departments", data),
+        axiosClient.post("/departments/", data),
 
     // Cập nhật department
     updateDepartment: (data: { id: string; name: string }) => 
-        axiosClient.put("/departments", data),
+        axiosClient.put("/departments/", data),
 
     // Xóa department
     deleteDepartment: (data: { id: string }) => 
-        axiosClient.delete("/departments", { data }),
+        axiosClient.delete("/departments/", { data }),
 };
 
 export default departmentsApi;

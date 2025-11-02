@@ -31,13 +31,13 @@ const employeesApi = {
         department?: string;
         is_active?: boolean;
         search?: string;
-    }) => axiosClient.get("/users", { params }),
+    }) => axiosClient.get("/users/", { params }),
 
     // Xóa user theo ID
     deleteUser: (id: string) => axiosClient.delete(`/users/${id}`),
 
     // Thêm user mới
-    addUser: (data: AddUserPayload) => axiosClient.post("/users", data),
+    addUser: (data: AddUserPayload) => axiosClient.post("/users/", data),
 
     // Cập nhật user theo ID
     updateUser: (id: string, data: UpdateUserPayload) => axiosClient.put(`/users/${id}`, data),
