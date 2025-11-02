@@ -601,7 +601,6 @@ async def process_attendance_detections(
     # Chuyển sang giờ Việt Nam (UTC+7) để check thời gian
     vn_timezone = timezone(timedelta(hours=7))
     timestamp_vn = timestamp.astimezone(vn_timezone)
-    LOGGER.debug(f"Timestamp in Vietnam: {timestamp_vn}")
     
     # Xác định xem có phải sau 17h30 không
     is_after_checkout_time = (
@@ -610,13 +609,15 @@ async def process_attendance_detections(
     )
     
     # Lấy ngày hiện tại (start of day UTC)
-    today_start = datetime(
+    today_start_vn = datetime(
         timestamp_vn.year, 
         timestamp_vn.month, 
         timestamp_vn.day, 
         0, 0, 0, 
-        tzinfo=timezone.utc
+        tzinfo=vn_timezone
     )
+
+    today_start = today_start_vn.astimezone(timezone.utc)
     
     results = []
     
@@ -659,8 +660,8 @@ async def process_attendance_detections(
                 })
             
             action = ""
-            show_welcome = False
-            show_goodbye = False
+            send_welcome = False
+            send_goodbye = False
             message = None
             
             if existing_record:
@@ -672,7 +673,7 @@ async def process_attendance_detections(
                 if is_after_checkout_time:
                     # SAU 17H30 - Chỉ update check_out_time
                     action = "check_out"
-                    show_goodbye = True
+                    send_goodbye = True
                     message = f"Tạm biệt {full_name}"
                     
                     # Update record
@@ -689,8 +690,8 @@ async def process_attendance_detections(
                 else:
                     # TRƯỚC 17H30 - Chỉ thêm timestamp, không update check_in/check_out
                     action = "timestamp_added"
-                    show_welcome = False
-                    show_goodbye = False
+                    send_welcome = False
+                    send_goodbye = False
                     
                     # Update record
                     await attendances_collection.update_one(
@@ -708,7 +709,7 @@ async def process_attendance_detections(
                 if is_after_checkout_time:
                     # SAU 17H30 - Chỉ tạo check_out, không có check_in
                     action = "after_hours_only"
-                    show_goodbye = True
+                    send_goodbye = True
                     message = f"Tạm biệt {full_name}"
                     
                     new_record = {
@@ -724,7 +725,7 @@ async def process_attendance_detections(
                 else:
                     # TRƯỚC 17H30 - Check-in đầu tiên
                     action = "check_in"
-                    show_welcome = True
+                    send_welcome = True
                     message = f"Xin chào {full_name}"
                     
                     new_record = {
@@ -746,8 +747,8 @@ async def process_attendance_detections(
                 "user_id": user_id,
                 "full_name": full_name,
                 "action": action,
-                "show_welcome": show_welcome,
-                "show_goodbye": show_goodbye,
+                "send_welcome": send_welcome,
+                "send_goodbye": send_goodbye,
                 "message": message
             })
         

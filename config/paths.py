@@ -12,6 +12,7 @@ class PathConfig(BaseConfig):
     # Base paths
     ROOT_DIR: Path = Path(__file__).resolve().parent.parent
     AI_SERVICE_DIR: Path = ROOT_DIR / "ai_service"
+    BACKEND_DIR: Path = ROOT_DIR / "backend"
     MODEL_DIR: Path = AI_SERVICE_DIR / "ai_models"
     DATA_DIR: Path = AI_SERVICE_DIR / "data"
     FAISS_DIR: Path = DATA_DIR / "faiss"
@@ -29,6 +30,7 @@ class PathConfig(BaseConfig):
     # Backend paths
     USERS_DATA_PATH: str
     USERS_DATA_DIR: Path | None = None
+    BACKEND_TEMP_DIR: Path = BACKEND_DIR / "temp"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -54,7 +56,7 @@ class PathConfig(BaseConfig):
 
     def ensure_directories(self):
         """Tạo thư mục cần thiết nếu chưa có"""
-        for path in [self.MODEL_DIR, self.FAISS_DIR, self.USERS_DATA_DIR]:
+        for path in [self.MODEL_DIR, self.FAISS_DIR, self.USERS_DATA_DIR, self.BACKEND_TEMP_DIR]:
             if not path.exists():
                 path.mkdir(parents=True, exist_ok=True)
                 LOGGER.info(f"Created directory: {path}")

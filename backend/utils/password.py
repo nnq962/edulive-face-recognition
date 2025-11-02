@@ -23,11 +23,7 @@ def hash_password(password: str) -> str:
         '$2b$12$...'
     """
     try:
-        LOGGER.debug(f"Hashing password: {password}")
-        LOGGER.debug(f"DEBUG password type: {type(password)}")
-        LOGGER.debug(f"DEBUG password repr: {repr(password)}")
         hashed = pwd_context.hash(password)
-        LOGGER.debug("Password hashed successfully")
         return hashed
     except Exception as e:
         LOGGER.error(f"Error hashing password: {e}")
@@ -55,9 +51,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
         result = pwd_context.verify(plain_password, hashed_password)
         if result:
-            LOGGER.debug("Password verification successful")
+            LOGGER.info("Password verification successful")
         else:
-            LOGGER.debug("Password verification failed")
+            LOGGER.info("Password verification failed")
         return result
     except Exception as e:
         LOGGER.error(f"Error verifying password: {e}")
@@ -128,5 +124,5 @@ def generate_random_password(length: int = 12) -> str:
         if (any(c.islower() for c in password) and
             any(c.isupper() for c in password) and
             any(c.isdigit() for c in password)):
-            LOGGER.debug(f"Generated random password with length {length}")
+            LOGGER.info(f"Generated random password with length {length}")
             return password

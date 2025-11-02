@@ -22,6 +22,7 @@ from backend.services.attendance import (
 )
 from config.dependencies import get_db, get_current_active_user, require_admin
 from utils import LOGGER
+from utils.verify_api_key import verify_update_attendance_key
 
 router = APIRouter(prefix="/api/attendances", tags=["Attendances"])
 
@@ -469,7 +470,7 @@ async def export_monthly_report_excel(
 
 # ==================== Process Attendance Detection API ====================
 @router.post(
-    "/detect",
+    "/update",
     response_model=AttendanceDetectionResponse,
     summary="Xử lý batch detections từ client",
     description="API nhận batch detections từ client (nhiều user, nhiều camera), xử lý logic chấm công và trả về kết quả cần hiển thị welcome/goodbye.",
@@ -488,6 +489,7 @@ async def export_monthly_report_excel(
 async def process_detections(
     request: AttendanceDetectionRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
+    _: bool = Depends(verify_update_attendance_key),
 ):
     """
     Xử lý batch detections từ client
@@ -544,7 +546,7 @@ async def process_detections(
     - `timestamp_added`: Chỉ thêm timestamp, không có welcome/goodbye
     - `after_hours_only`: Sau 17h30 chỉ có check-out, không có check-in
     """
-    
+
     try:
         LOGGER.info(f"Processing {len(request.data)} detections at {request.timestamp}")
         

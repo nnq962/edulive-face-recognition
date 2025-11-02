@@ -80,10 +80,7 @@ async def get_departments(
         query = {}
         if search:
             query["name"] = {"$regex": search, "$options": "i"}  # Case-insensitive search
-        
-        LOGGER.debug(f"Query: {query}")
-        LOGGER.debug(f"Pagination: page={page}, limit={limit}, sort={sort}, order={order}")
-        
+                
         # Get total count
         total = await departments_collection.count_documents(query)
         

@@ -20,13 +20,15 @@ from ai_service.utils.insightface_utils import (
     search_ids,
 )
 from ai_service.utils.plots import Annotator
-from config import network, paths
+from config import network, paths, keys
 from utils import LOGGER
-from utils.time_helper import vn_now_iso
+from utils.time_helper import utc_now_iso
 
 ort.set_default_logger_severity(3)
 
-ATTENDANCE_API_URL = network.ATTENDANCE_API_URL
+UPDATE_ATTENDANCE_API_URL = network.UPDATE_ATTENDANCE_API_URL
+UPDATE_ATTENDANCE_API_KEY = keys.UPDATE_ATTENDANCE_API_KEY
+
 
 @dataclass
 class DetectionBatchResult:
@@ -87,7 +89,7 @@ class RecognitionBatchResult:
                     })
 
         return {
-            "timestamp": vn_now_iso(),
+            "timestamp": utc_now_iso(),
             "data": data
         }
 
@@ -437,6 +439,17 @@ class InsightFaceDetector:
     def _api_sender_worker(self):
         """API sender thread worker - gửi data lên backend (chạy ở background)"""
         LOGGER.info("API sender thread started")
+
+        # Check config before entering loop
+        if not UPDATE_ATTENDANCE_API_URL:
+            LOGGER.error("UPDATE_ATTENDANCE_API_URL not configured, API sender disabled")
+            return
+        
+        if not UPDATE_ATTENDANCE_API_KEY:
+            LOGGER.error("UPDATE_ATTENDANCE_API_KEY not configured, API sender disabled")
+            return
+    
+        LOGGER.info(f"API sender configured: {UPDATE_ATTENDANCE_API_URL}")
         
         while self.state.running:
             try:
@@ -449,12 +462,18 @@ class InsightFaceDetector:
                 # Kiểm tra nếu không có data thì bỏ qua
                 if not payload.get("data"):
                     continue
+
+                # Headers với API key
+                headers = {
+                    'X-API-Key': UPDATE_ATTENDANCE_API_KEY
+                }
                 
                 try:
                     # Gửi API request
                     response = requests.post(
-                        ATTENDANCE_API_URL,
+                        UPDATE_ATTENDANCE_API_URL,
                         json=payload,
+                        headers=headers,
                         timeout=5.0  # Timeout 5s
                     )
                     
@@ -465,10 +484,12 @@ class InsightFaceDetector:
                             
                             # Hiển thị welcome/goodbye messages
                             for user_result in result.get('results', []):
-                                if user_result.get('show_welcome'):
-                                    LOGGER.info(f"\ud83d\udc4b {user_result.get('message', '')}")
-                                elif user_result.get('show_goodbye'):
-                                    LOGGER.info(f"\ud83d\udc4b {user_result.get('message', '')}")
+                                if user_result.get('send_welcome'):
+                                    LOGGER.info(f"{user_result.get('message', '')}")
+                                elif user_result.get('send_goodbye'):
+                                    LOGGER.info(f"{user_result.get('message', '')}")
+                    elif response.status_code == 401:
+                        LOGGER.error(f"Authentication failed: Invalid API key")
                     else:
                         LOGGER.warning(f"API request failed with status {response.status_code}")
                         

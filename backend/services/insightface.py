@@ -10,8 +10,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from utils import LOGGER
 from config import paths
 from unidecode import unidecode
+from config import network, keys
+import requests
 
 
+UPDATE_FAISS_API_KEY = keys.UPDATE_FAISS_API_KEY
+UPDATE_FAISS_API_URL = network.UPDATE_FAISS_API_URL
 detector = InsightFaceDetector(
     face_detection=True,
     face_detection_threshold=0.65,
@@ -35,13 +39,93 @@ def get_face_embeddings(images: List[np.ndarray], detection_results: List[Tuple[
     return face_embeddings
 
 
-async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths.FAISS_DIR):
+def upload_faiss_to_ai_service(faiss_path: Path, mapping_path: Path) -> bool:
+    """
+    Upload FAISS and mapping file to AI Service
+    
+    Args:
+        faiss_path: Path to face_index.faiss
+        mapping_path: Path to faiss_mapping.pkl
+        
+    Returns:
+        bool: True nếu upload thành công
+    """
+    
+    if not UPDATE_FAISS_API_URL:
+        LOGGER.warning("UPDATE_FAISS_API_URL not configured, skip uploading")
+        return False
+
+    if not UPDATE_FAISS_API_KEY:
+        LOGGER.error("UPDATE_FAISS_API_KEY not configured in keys config")
+        return False
+    
+    try:
+        # Kiểm tra files tồn tại
+        if not faiss_path.exists():
+            LOGGER.error(f"FAISS file not found: {faiss_path}")
+            return False
+        
+        if not mapping_path.exists():
+            LOGGER.error(f"Mapping file not found: {mapping_path}")
+            return False
+        
+        # Mở và upload files
+        with open(faiss_path, 'rb') as faiss_file, \
+             open(mapping_path, 'rb') as pkl_file:
+            
+            files = {
+                'faiss_file': ('face_index.faiss', faiss_file, 'application/octet-stream'),
+                'pkl_file': ('faiss_mapping.pkl', pkl_file, 'application/octet-stream')
+            }
+
+            # Headers với API key
+            headers = {
+                'X-API-Key': UPDATE_FAISS_API_KEY
+            }
+            
+            LOGGER.info(f"Uploading face DB to AI Worker: {UPDATE_FAISS_API_URL}")
+            
+            # Gửi request
+            response = requests.post(
+                UPDATE_FAISS_API_URL,
+                files=files,
+                headers=headers,    
+                timeout=30  # 30s timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                LOGGER.info(f"Face DB uploaded successfully: {result.get('message', 'OK')}")
+                
+                # Log details nếu có
+                if 'data' in result:
+                    data = result['data']
+                    LOGGER.info(f"   - FAISS size: {data.get('faiss_size', 0)} bytes")
+                    LOGGER.info(f"   - PKL size: {data.get('pkl_size', 0)} bytes")
+                
+                return True
+            else:
+                LOGGER.error(f"Upload failed: {response.status_code} - {response.text}")
+                return False
+                
+    except requests.exceptions.ConnectionError as e:
+        LOGGER.error(f"Cannot connect to AI Worker: {e}")
+        return False
+    except requests.exceptions.Timeout:
+        LOGGER.error(f"Upload timeout (>30s)")
+        return False
+    except Exception as e:
+        LOGGER.error(f"Upload failed: {str(e)}")
+        return False
+
+
+async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths.BACKEND_TEMP_DIR):
     """
     Duyệt toàn bộ user, gom embeddings -> build lại FAISS index và mapping.pkl.
 
     Args:
         db: Mongo database instance
-        output_dir: thư mục lưu index.faiss và mapping.pkl
+        output_dir: thư mục lưu index.faiss và mapping.pkl (default: backend/temp)
     """
 
     users_collection = db["users"]
@@ -99,9 +183,12 @@ async def rebuild_faiss_index(db: AsyncIOMotorDatabase, output_dir: Path = paths
     LOGGER.info(f" - Mapping: {mapping_path}")
     LOGGER.info(f" - Total vectors: {len(all_embeddings)}")
 
+    upload_success = upload_faiss_to_ai_service(faiss_path, mapping_path)
+
     return {
         "status": "success",
         "count": len(all_embeddings),
         "index_path": str(faiss_path),
         "mapping_path": str(mapping_path),
+        "upload_success": upload_success
     }

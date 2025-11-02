@@ -3,7 +3,7 @@ from config.base import BaseConfig
 class FeatureConfig(BaseConfig):
     # Insightface config
     ENABLE_FACE_DETECTION: bool = True
-    FACE_DETECTION_THRESHOLD: float = 0.65
+    FACE_DETECTION_THRESHOLD: float = 0.7
     ENABLE_FACE_RECOGNITION: bool = True
     FACE_RECOGNITION_THRESHOLD: float = 0.58
     ENABLE_SHOW: bool = True
