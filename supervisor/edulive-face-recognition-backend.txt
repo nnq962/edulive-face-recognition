@@ -1,0 +1,18 @@
+[program:edulive-backend]
+# Tên process
+command=/usr/bin/uvicorn backend.main:app --port 9620 --workers 4
+# Thư mục project
+directory=/Users/quyetnguyen/Projects/edulive-face-recognition
+# User chạy process (thay bằng user của bạn)
+user=quyetnguyen
+# Auto start khi server khởi động
+autostart=true
+# Auto restart nếu crash
+autorestart=true
+# Redirect logs
+stdout_logfile=/var/log/edulive-backend.log
+stderr_logfile=/var/log/edulive-backend.error.log
+# Số lần retry trước khi từ bỏ
+startretries=3
+# Stop signal
+stopsignal=TERM
