@@ -5,7 +5,7 @@ class FeatureConfig(BaseConfig):
     ENABLE_FACE_DETECTION: bool = True
     FACE_DETECTION_THRESHOLD: float = 0.7
     ENABLE_FACE_RECOGNITION: bool = True
-    FACE_RECOGNITION_THRESHOLD: float = 0.58
+    FACE_RECOGNITION_THRESHOLD: float = 0.57
     ENABLE_SHOW: bool = True
     LINE_THICKNESS: int = 3
     ENABLE_VERBOSE: bool = False

@@ -154,9 +154,14 @@ async def get_monthly_attendance_report(
     # Tính số ngày trong tháng
     num_days = calendar.monthrange(year, month)[1]
     
-    # Tạo start_date và end_date cho tháng
-    start_date = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
-    end_date = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=timezone.utc)
+    # Tạo start_date và end_date cho tháng dựa trên múi giờ Việt Nam (UTC+7)
+    # Lưu ý: Trường `date` trong DB đang lưu ở 17:00:00Z (tương ứng 00:00:00+07)
+    # nên cần tính ranh giới tháng theo giờ VN rồi chuyển sang UTC để truy vấn chính xác
+    vn_tz = timezone(timedelta(hours=7))
+    vn_month_start = datetime(year, month, 1, 0, 0, 0, tzinfo=vn_tz)
+    vn_month_end = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=vn_tz)
+    start_date = vn_month_start.astimezone(timezone.utc)
+    end_date = vn_month_end.astimezone(timezone.utc)
     
     # Lấy tất cả users, sắp xếp theo full_name
     users_collection = db[USER_COLLECTION]
@@ -197,8 +202,10 @@ async def get_monthly_attendance_report(
         user_id_str = str(record["user_id"])
         record_date = record["date"]
         
-        # Convert datetime to date string (YYYY-MM-DD)
-        date_str = record_date.strftime("%Y-%m-%d")
+        # Chuẩn hóa ngày theo giờ Việt Nam, sau đó format YYYY-MM-DD
+        # Trường `date` lưu UTC, cần chuyển sang UTC+7 để lấy đúng ngày local
+        record_date_vn = record_date.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+        date_str = record_date_vn.strftime("%Y-%m-%d")
         
         if user_id_str not in attendance_by_user:
             attendance_by_user[user_id_str] = {}
@@ -312,9 +319,12 @@ async def get_monthly_attendance_report_for_export(
     # Tính số ngày trong tháng
     num_days = calendar.monthrange(year, month)[1]
     
-    # Tạo start_date và end_date cho tháng
-    start_date = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
-    end_date = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=timezone.utc)
+    # Tạo start_date và end_date cho tháng dựa trên múi giờ Việt Nam (UTC+7)
+    vn_tz = timezone(timedelta(hours=7))
+    vn_month_start = datetime(year, month, 1, 0, 0, 0, tzinfo=vn_tz)
+    vn_month_end = datetime(year, month, num_days, 23, 59, 59, 999999, tzinfo=vn_tz)
+    start_date = vn_month_start.astimezone(timezone.utc)
+    end_date = vn_month_end.astimezone(timezone.utc)
     
     # Lấy tất cả users, sắp xếp theo full_name
     users_collection = db[USER_COLLECTION]
@@ -355,8 +365,9 @@ async def get_monthly_attendance_report_for_export(
         user_id_str = str(record["user_id"])
         record_date = record["date"]
         
-        # Convert datetime to date string (YYYY-MM-DD)
-        date_str = record_date.strftime("%Y-%m-%d")
+        # Chuẩn hóa ngày theo giờ Việt Nam, sau đó format YYYY-MM-DD
+        record_date_vn = record_date.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+        date_str = record_date_vn.strftime("%Y-%m-%d")
         
         if user_id_str not in attendance_by_user:
             attendance_by_user[user_id_str] = {}
