@@ -1,0 +1,15 @@
+[program:edulive-face-recognition-app]
+directory=/home/quyetnn/nnq962/pro/edulive-face-recognition
+command=/home/quyetnn/miniconda3/envs/edulive-face-recognition/bin/python -m uvicorn backend.main:app --port 9620
+autostart=true
+autorestart=true
+startsecs=3
+stopwaitsecs=10
+user=quyetnn
+environment=PATH="/home/quyetnn/miniconda3/envs/edulive-face-recognition/bin",HOME="/home/quyetnn"
+
+stdout_logfile=/var/log/edulive-face-recognition-app.out.log
+stderr_logfile=/var/log/edulive-face-recognition-app.err.log
+stdout_logfile_maxbytes=50MB
+stderr_logfile_maxbytes=50MB
+stdout_logfile_backups=3
