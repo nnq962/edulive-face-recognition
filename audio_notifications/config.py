@@ -4,7 +4,7 @@ Chứa các cấu hình mặc định cho client và server
 """
 
 # Cấu hình mặc định
-HOST = '192.168.0.100'
+HOST = '192.168.1.102'
 PORT = 9623
 CONTROL_PORT = 14679
 SECRET_KEY = "edulive"
