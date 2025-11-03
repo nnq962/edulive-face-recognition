@@ -17,5 +17,6 @@ class FeatureConfig(BaseConfig):
     # Data save config
     ENABLE_FACE_DATA_SAVE: bool = True
     FACE_DATA_SAVE_INTERVAL_SEC: int = 1
+    SEND_NOTIFICATION: bool = False
 
 features = FeatureConfig()

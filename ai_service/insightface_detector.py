@@ -132,6 +132,7 @@ class InsightFaceDetector:
         media_manager=None,
         enable_face_data_save=False,
         face_data_save_interval_sec=2,
+        send_notification=False,
 
     ):
         self.face_detection = face_detection
@@ -140,6 +141,8 @@ class InsightFaceDetector:
         self.face_recognition_threshold = face_recognition_threshold
         self.enable_face_data_save = enable_face_data_save
         self.face_data_save_interval_sec = face_data_save_interval_sec
+        self.send_notification = send_notification
+
         if self.face_recognition is True and self.face_detection is False:
             raise ValueError("Face recognition requires face detection")
 
@@ -486,16 +489,18 @@ class InsightFaceDetector:
                             if user_result.get('send_welcome'):
                                 LOGGER.info(f"{user_result.get('message', '')}")
 
-                                send_notification(
-                                    message=user_result.get('message', ''),
-                                    host=HOST,
-                                    control_port=CONTROL_PORT,
-                                    secret_key=SECRET_KEY
-                                )
+                                if self.send_notification:
+                                    send_notification(
+                                        message=user_result.get('message', ''),
+                                        host=HOST,
+                                        control_port=CONTROL_PORT,
+                                        secret_key=SECRET_KEY
+                                    )
                             elif user_result.get('send_goodbye'):
                                 LOGGER.info(f"{user_result.get('message', '')}")
 
-                                send_notification(
+                                if self.send_notification:
+                                    send_notification(
                                     message=user_result.get('message', ''),
                                     host=HOST,
                                     control_port=CONTROL_PORT,

@@ -529,90 +529,112 @@ const EmployeeManagementDetailModal: React.FC<EmployeeManagementDetailModalProps
                                         }}
                                         size="small"
                                         loading={loadingImages}
+                                        styles={{
+                                            body: {
+                                                padding: '16px'
+                                            }
+                                        }}
                                     >
                                         {images.length === 0 ? (
                                             <div style={{
                                                 textAlign: 'center',
-                                                padding: '40px 0',
+                                                padding: '40px 16px',
                                                 color: '#999'
                                             }}>
                                                 Chưa có ảnh nào
                                             </div>
                                         ) : (
-                                            <div style={{
+                                            <div className="user-faces-grid" style={{
                                                 display: 'grid',
                                                 gridTemplateColumns: 'repeat(4, 1fr)',
-                                                gap: 8
+                                                gap: 16,
+                                                width: '100%',
+                                                boxSizing: 'border-box'
                                             }}>
                                                 {images.map((image, index) => (
-                                                    <Card
+                                                    <div
                                                         key={index}
-                                                        size="small"
-                                                        variant="borderless"
                                                         style={{
-                                                            textAlign: 'center',
-                                                            padding: 0,
-                                                            background: 'transparent',
-                                                            boxShadow: 'none',
-                                                            border: 'none'
-                                                        }}
-                                                        styles={{ body: { padding: 8 } }}
-                                                    >
-                                                        <div style={{
+                                                            width: '100%',
+                                                            aspectRatio: '1',
                                                             position: 'relative',
-                                                            display: 'inline-block'
-                                                        }}>
-                                                            <Image
-                                                                src={image.url}
-                                                                alt={`Face ${index + 1}`}
-                                                                width={120}
-                                                                height={120}
+                                                            overflow: 'hidden',
+                                                            borderRadius: 8,
+                                                            boxSizing: 'border-box'
+                                                        }}
+                                                    >
+                                                        <Image
+                                                            src={image.url}
+                                                            alt={`Face ${index + 1}`}
+                                                            width="100%"
+                                                            height="100%"
+                                                            style={{
+                                                                objectFit: 'cover',
+                                                                borderRadius: 8,
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                display: 'block'
+                                                            }}
+                                                            preview={{
+                                                                mask: 'Xem ảnh'
+                                                            }}
+                                                        />
+                                                        <Popconfirm
+                                                            title="Xóa ảnh"
+                                                            description="Bạn có chắc chắn muốn xóa ảnh này?"
+                                                            onConfirm={() => handleRemoveImage(image.filename)}
+                                                            okText="Xóa"
+                                                            cancelText="Hủy"
+                                                            okButtonProps={{ danger: true }}
+                                                        >
+                                                            <CloseCircleFilled
                                                                 style={{
-                                                                    objectFit: 'cover',
-                                                                    borderRadius: 8
-                                                                }}
-                                                                preview={{
-                                                                    mask: 'Xem ảnh'
+                                                                    position: 'absolute',
+                                                                    top: 4,
+                                                                    right: 4,
+                                                                    fontSize: 18,
+                                                                    color: '#ff4d4f',
+                                                                    cursor: 'pointer',
+                                                                    backgroundColor: 'white',
+                                                                    borderRadius: '50%',
+                                                                    zIndex: 10,
+                                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                                                 }}
                                                             />
-                                                            <Popconfirm
-                                                                title="Xóa ảnh"
-                                                                description="Bạn có chắc chắn muốn xóa ảnh này?"
-                                                                onConfirm={() => handleRemoveImage(image.filename)}
-                                                                okText="Xóa"
-                                                                cancelText="Hủy"
-                                                                okButtonProps={{ danger: true }}
-                                                            >
-                                                                <CloseCircleFilled
-                                                                    style={{
-                                                                        position: 'absolute',
-                                                                        top: 4,
-                                                                        right: 4,
-                                                                        fontSize: 18,
-                                                                        color: '#ff4d4f',
-                                                                        cursor: 'pointer',
-                                                                        backgroundColor: 'white',
-                                                                        borderRadius: '50%',
-                                                                        zIndex: 10
-                                                                    }}
-                                                                />
-                                                            </Popconfirm>
-                                                        </div>
-                                                    </Card>
+                                                        </Popconfirm>
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
                                         <style>
                                             {`
+                                                .user-faces-grid {
+                                                    grid-template-columns: repeat(4, 1fr) !important;
+                                                }
+                                                @media (max-width: 1200px) {
+                                                    .user-faces-grid {
+                                                        grid-template-columns: repeat(3, 1fr) !important;
+                                                    }
+                                                }
                                                 @media (max-width: 768px) {
-                                                    .ant-card-body > div {
+                                                    .user-faces-grid {
                                                         grid-template-columns: repeat(2, 1fr) !important;
+                                                        gap: 16px !important;
                                                     }
                                                 }
                                                 @media (max-width: 480px) {
-                                                    .ant-card-body > div {
+                                                    .user-faces-grid {
                                                         grid-template-columns: repeat(2, 1fr) !important;
+                                                        gap: 16px !important;
                                                     }
+                                                }
+                                                .user-faces-grid > div {
+                                                    min-width: 0;
+                                                    max-width: 100%;
+                                                }
+                                                .user-faces-grid img {
+                                                    max-width: 100%;
+                                                    height: auto;
                                                 }
                                             `}
                                         </style>

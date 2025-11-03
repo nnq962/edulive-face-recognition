@@ -33,7 +33,7 @@ const EmployeeManagement: React.FC = () => {
     // Pagination state
     const [pagination, setPagination] = useState({
         current: 1,
-        pageSize: 20, // Mặc định 20 items/page
+        pageSize: 50, // Mặc định 50 items/page
         total: 0,
     })
 
@@ -160,7 +160,7 @@ const EmployeeManagement: React.FC = () => {
     }
 
     // Fetch users từ API với pagination
-    const fetchUsers = async (page: number = 1, pageSize: number = 20) => {
+    const fetchUsers = async (page: number = 1, pageSize: number = 50) => {
         try {
             setLoading(true)
             const response = await employeesApi.getAllUsers({
@@ -205,9 +205,9 @@ const EmployeeManagement: React.FC = () => {
         }
     }
 
-    // Initialize - Lấy trang 1 với 20 items
+    // Initialize - Lấy trang 1 với 50 items
     React.useEffect(() => {
-        fetchUsers(1, 20)
+        fetchUsers(1, 50)
     }, [])
 
     // Handle khi user thay đổi trang hoặc pageSize

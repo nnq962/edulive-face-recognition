@@ -1,7 +1,6 @@
 # backend/schemas/common.py
 
 from typing import Generic, Optional, TypeVar, Any, Dict
-from pydantic.generics import GenericModel
 from pydantic import BaseModel, Field
 
 
@@ -9,7 +8,7 @@ T = TypeVar("T")
 
 # ==================== Base Response ====================
 
-class ApiResponse(GenericModel, Generic[T]):
+class ApiResponse(BaseModel, Generic[T]):
     """Base API response"""
     success: bool
     message: str
@@ -33,7 +32,7 @@ class PaginationMeta(BaseModel):
 
 # ==================== Paginated Response ====================
 
-class PaginatedResponse(GenericModel, Generic[T]):
+class PaginatedResponse(BaseModel, Generic[T]):
     """Response with pagination"""
     success: bool = True
     message: str

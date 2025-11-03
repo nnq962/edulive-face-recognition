@@ -36,6 +36,19 @@ const Settings: React.FC = () => {
         }
     };
 
+    const getRoleColor = (role: string) => {
+        switch (role) {
+            case 'super_admin':
+                return 'red'
+            case 'admin':
+                return 'orange'
+            case 'user':
+                return 'blue'
+            default:
+                return 'default'
+        }
+    }
+
     const handleUpdateProfile = async () => {
         if (!user) return;
 
@@ -128,7 +141,7 @@ const Settings: React.FC = () => {
                             {user.email || 'Chưa có'}
                         </Descriptions.Item>
                         <Descriptions.Item label="Vai trò">
-                            <Tag color="blue">{getRoleDisplay(user.role)}</Tag>
+                            <Tag color={getRoleColor(user.role)}>{getRoleDisplay(user.role)}</Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Chức vụ">
                             {user.position || 'Chưa có'}
