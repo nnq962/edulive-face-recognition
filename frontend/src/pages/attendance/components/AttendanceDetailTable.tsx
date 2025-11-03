@@ -114,9 +114,11 @@ const mergeAttendanceData = (fullCalendar: AttendanceRecord[], apiData: Attendan
     })
 }
 
-const isWeekend = (date: string) => {
+// Helper: Lấy tên thứ theo tiếng Việt từ yyyy-mm-dd
+const getWeekdayName = (date: string) => {
     const weekday = dayjs(date).day()
-    return weekday === 0 || weekday === 6
+    const names = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+    return names[weekday]
 }
 
 const columns: TableProps<AttendanceRecord>['columns'] = [
@@ -126,12 +128,6 @@ const columns: TableProps<AttendanceRecord>['columns'] = [
         key: 'date',
         width: 115,
         fixed: 'left',
-        onCell: (record) => {
-            const weekend = isWeekend(record.date)
-            return {
-                style: weekend ? { backgroundColor: '#fff1f0' } : undefined,
-            }
-        },
         filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }: FilterDropdownProps) => (
             <div style={{ padding: 8 }}>
                 <DatePicker
@@ -165,6 +161,13 @@ const columns: TableProps<AttendanceRecord>['columns'] = [
             </div>
         ),
         onFilter: (value, record) => record.date === value,
+    },
+    {
+        title: 'Thứ',
+        dataIndex: 'weekday',
+        key: 'weekday',
+        width: 100,
+        render: (_: any, record) => getWeekdayName(record.date),
     },
     {
         title: 'Check in',
@@ -353,28 +356,9 @@ const [total, setTotal] = useState(0)
                 scroll={{ x: 'max-content' }}
                 sticky
                 onRow={(record) => {
-                    const weekend = isWeekend(record.date)
                     return {
-                        style: weekend ? { backgroundColor: '#fff1f0', cursor: 'pointer' } : { cursor: 'pointer' },
+                        style: { cursor: 'pointer' },
                         onClick: () => handleRowClick(record),
-                        onMouseEnter: (e) => {
-                            if (weekend) {
-                                const row = e.currentTarget
-                                const cells = row.querySelectorAll('td')
-                                cells.forEach((cell: Element) => {
-                                    (cell as HTMLElement).style.backgroundColor = '#ffe4e1'
-                                })
-                            }
-                        },
-                        onMouseLeave: (e) => {
-                            if (weekend) {
-                                const row = e.currentTarget
-                                const cells = row.querySelectorAll('td')
-                                cells.forEach((cell: Element) => {
-                                    (cell as HTMLElement).style.backgroundColor = '#fff1f0'
-                                })
-                            }
-                        },
                     }
                 }}
                 title={() => (
@@ -435,68 +419,6 @@ const [total, setTotal] = useState(0)
                         </div>
                     </div>
                 )}
-                footer={() => {
-                    // Mock data summary
-                    const summary = {
-                        totalDays: 20,
-                        onTime: 18,
-                        late810: 1,
-                        late830: 1,
-                        earlyLeave: 1,
-                        morningAbsent: 0,
-                        afternoonAbsent: 0,
-                        fullDayOff: 0,
-                        fine: '100K',
-                    }
-
-                    return (
-                        <div>
-                            {/* <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(2, 1fr)',
-                                gap: '8px 24px',
-                                marginBottom: '12px',
-                                paddingBottom: '12px',
-                                borderBottom: '1px solid #f0f0f0'
-                            }}>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Tổng ngày công:</strong> {summary.totalDays}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Đúng giờ:</strong> {summary.onTime}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Muộn sau 8:10:</strong> {summary.late810}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Muộn sau 8:30:</strong> {summary.late830}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Về sớm:</strong> {summary.earlyLeave}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Nghỉ sáng:</strong> {summary.morningAbsent}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Nghỉ chiều:</strong> {summary.afternoonAbsent}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Nghỉ cả ngày:</strong> {summary.fullDayOff}
-                                </span>
-                                <span style={{ fontSize: '14px' }}>
-                                    <strong>Tiền phạt:</strong> {summary.fine}
-                                </span>
-                            </div> */}
-                            <div style={{
-                                color: 'red',
-                                fontSize: '14px',
-                                fontStyle: 'italic'
-                            }}>
-                                Những ngày được bôi đỏ là thứ 7 và chủ nhật.
-                            </div>
-                        </div>
-                    )
-                }}
             />
             <AttendanceDetailModal
                 open={modalOpen}
