@@ -4,7 +4,6 @@ import time
 import json
 import threading
 import hashlib
-import argparse
 import queue
 from gtts import gTTS
 import subprocess
