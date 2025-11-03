@@ -36,7 +36,7 @@ const Vip: React.FC = () => {
                 '100 request điều chỉnh chấm công',
                 'Hỗ trợ email',
                 'Báo cáo hàng tháng',
-                'Lưu trữ 30 ngày',
+                'Lưu trữ 90 ngày',
                 'X:Tư vấn cá nhân hóa',
                 'X:Ưu tiên tính năng mới',
             ],
@@ -54,7 +54,7 @@ const Vip: React.FC = () => {
                 '400 request điều chỉnh chấm công',
                 'Hỗ trợ ưu tiên 24/7',
                 'Báo cáo chi tiết hàng tuần',
-                'Lưu trữ 90 ngày',
+                'Lưu trữ 365 ngày',
                 'Tư vấn cá nhân hóa',
                 'X:Ưu tiên tính năng mới',
             ],
@@ -66,8 +66,8 @@ const Vip: React.FC = () => {
         {
             id: 'lifetime',
             name: 'Lifetime',
-            price: '999.000đ',
-            originalPrice: '1.999.000đ',
+            price: '1.999.000đ',
+            originalPrice: '2.999.000đ',
             requests: '∞',
             description: 'Cho ai muốn tự do tuyệt đối',
             features: [
@@ -196,7 +196,7 @@ const Vip: React.FC = () => {
                         fontSize: '18px',
                         margin: '0 auto',
                     }}>
-                        Đừng để việc đi muộn làm ảnh hưởng đến công việc. Chọn gói phù hợp để tự do điều chỉnh chấm công! 😉
+                        Đừng để đời chỉ là những chuỗi ngày được chấm công. Chọn gói phù hợp để tự do điều chỉnh chấm công! 😉
                     </p>
                 </div>
 
