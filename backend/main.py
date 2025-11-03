@@ -111,13 +111,3 @@ app.include_router(auth.router)
 app.include_router(department.router)
 app.include_router(attendance.router)
 app.include_router(telegram.router)
-
-
-@app.get("/")
-async def root():
-    return {"message": "Edulive Face Recognition API"}
-
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
