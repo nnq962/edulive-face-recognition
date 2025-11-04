@@ -81,8 +81,9 @@ axiosClient.interceptors.response.use(
 
             try {
                 // Gọi API refresh token
+                const refreshUrl = `${axiosClient.defaults.baseURL}/auth/refresh`;
                 const response = await axios.post(
-                    "http://127.0.0.1:8000/api/auth/refresh",
+                    refreshUrl,
                     { refresh_token: refreshToken },
                     {
                         headers: {
