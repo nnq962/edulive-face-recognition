@@ -148,6 +148,13 @@ class LoadStreams:
             if not self.has_gstreamer:
                 LOGGER.warning("OpenCV is not built with GStreamer support. Falling back to standard method.")
         
+        # Kiểm tra xem có phải Jetson không (để sử dụng hardware decoder)
+        self.use_hardware = os.path.exists('/etc/nv_tegra_release')
+        if self.use_hardware:
+            LOGGER.info("Phát hiện Jetson - Sử dụng hardware decoder (nvv4l2decoder) cho hiệu năng tối ưu")
+        else:
+            LOGGER.info("Không phát hiện Jetson - Sử dụng software decoder")
+        
         # Thêm các tham số cho khả năng phục hồi
         self.reconnect_attempts = reconnect_attempts  # Số lần thử kết nối lại
         self.reconnect_delay = reconnect_delay  # Thời gian chờ giữa các lần kết nối lại (giây)
@@ -246,13 +253,14 @@ class LoadStreams:
             LOGGER.error(f"Lỗi khi phát hiện codec: {str(e)}")
             return None
 
-    def create_pipeline_for_codec(self, rtsp_url, codec=None):
+    def create_pipeline_for_codec(self, rtsp_url, codec=None, use_hardware=None):
         """
-        Tạo pipeline GStreamer phù hợp với codec
+        Tạo pipeline GStreamer tối ưu cho Jetson với hardware decoder
         
         Args:
             rtsp_url (str): URL của luồng RTSP
             codec (str): 'h264', 'h265' hoặc None để tự động phát hiện
+            use_hardware (bool): Sử dụng hardware decoder hay không. None để tự động phát hiện
             
         Returns:
             str: Pipeline GStreamer hoàn chỉnh
@@ -261,46 +269,86 @@ class LoadStreams:
         if codec is None:
             codec = self.detect_codec_ffmpeg(rtsp_url)
         
-        # Phần đầu của pipeline là giống nhau
-        base_pipeline = f"rtspsrc location={rtsp_url} latency=0 protocols=tcp drop-on-latency=true ! "
+        # Tự động phát hiện hardware nếu không được chỉ định
+        if use_hardware is None:
+            use_hardware = self.use_hardware
         
-        # Tạo pipeline dựa trên codec
-        if codec == "h264":
-            pipeline = (
-                f"{base_pipeline}rtph264depay ! h264parse ! avdec_h264 max-threads=4 ! "
-                "videoconvert ! video/x-raw, format=BGR ! "
-                "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
-            )
-            LOGGER.info(f"Sử dụng pipeline H264: {pipeline}")
-        elif codec == "h265":
-            pipeline = (
-                f"{base_pipeline}rtph265depay ! h265parse ! avdec_h265 max-threads=4 ! "
-                "videoconvert ! video/x-raw, format=BGR ! "
-                "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
-            )
-            LOGGER.info(f"Sử dụng pipeline H265: {pipeline}")
+        # Base pipeline tối ưu cho độ trễ thấp
+        base_pipeline = (
+            f"rtspsrc location={rtsp_url} latency=0 protocols=tcp drop-on-latency=true "
+            "udp-reconnect=1 timeout=0 ! "
+        )
+        
+        if use_hardware:
+            # Sử dụng hardware decoder của Jetson (nvv4l2decoder)
+            if codec == "h264":
+                pipeline = (
+                    f"{base_pipeline}"
+                    "rtph264depay ! h264parse ! "
+                    "nvv4l2decoder enable-max-performance=1 enable-non-planar=1 ! "
+                    "nvvidconv ! video/x-raw, format=BGRx ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 sync=false"
+                )
+                LOGGER.info(f"Sử dụng HARDWARE decoder H264 (nvv4l2decoder) cho {rtsp_url}")
+            elif codec == "h265":
+                pipeline = (
+                    f"{base_pipeline}"
+                    "rtph265depay ! h265parse ! "
+                    "nvv4l2decoder enable-max-performance=1 enable-non-planar=1 ! "
+                    "nvvidconv ! video/x-raw, format=BGRx ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 sync=false"
+                )
+                LOGGER.info(f"Sử dụng HARDWARE decoder H265 (nvv4l2decoder) cho {rtsp_url}")
+            else:
+                # Mặc định sử dụng H264 hardware decoder
+                LOGGER.warning(f"Không phát hiện được codec, sử dụng H264 hardware decoder làm mặc định")
+                pipeline = (
+                    f"{base_pipeline}"
+                    "rtph264depay ! h264parse ! "
+                    "nvv4l2decoder enable-max-performance=1 enable-non-planar=1 ! "
+                    "nvvidconv ! video/x-raw, format=BGRx ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 sync=false"
+                )
         else:
-            # Mặc định sử dụng H264 nếu không phát hiện được codec
-            LOGGER.warning(f"Không phát hiện được codec, sử dụng H264 làm mặc định")
-            pipeline = (
-                f"{base_pipeline}rtph264depay ! h264parse ! avdec_h264 max-threads=4 ! "
-                "videoconvert ! video/x-raw, format=BGR ! "
-                "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
-            )
+            # Fallback: Software decoder (chậm hơn)
+            if codec == "h264":
+                pipeline = (
+                    f"{base_pipeline}rtph264depay ! h264parse ! avdec_h264 max-threads=4 ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
+                )
+                LOGGER.info(f"Sử dụng SOFTWARE decoder H264 (chậm hơn) cho {rtsp_url}")
+            elif codec == "h265":
+                pipeline = (
+                    f"{base_pipeline}rtph265depay ! h265parse ! avdec_h265 max-threads=4 ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
+                )
+                LOGGER.info(f"Sử dụng SOFTWARE decoder H265 (chậm hơn) cho {rtsp_url}")
+            else:
+                pipeline = (
+                    f"{base_pipeline}rtph264depay ! h264parse ! avdec_h264 max-threads=4 ! "
+                    "videoconvert ! video/x-raw, format=BGR ! "
+                    "appsink drop=1 max-buffers=1 max-lateness=0 sync=false"
+                )
         
         return pipeline
 
     def create_gstreamer_pipeline(self, source, index):
         """
         Tạo pipeline GStreamer tối ưu cho độ trễ thấp và tự động phát hiện codec
+        Sử dụng hardware decoder của Jetson nếu có
         """
         try:
             # Kiểm tra xem source có phải là RTSP hay không
             if isinstance(source, str) and source.startswith('rtsp://'):
                 rtsp_url = source
                 
-                # Phát hiện codec và tạo pipeline phù hợp
-                pipeline = self.create_pipeline_for_codec(rtsp_url)
+                # Phát hiện codec và tạo pipeline phù hợp với hardware decoder
+                pipeline = self.create_pipeline_for_codec(rtsp_url, use_hardware=self.use_hardware)
                 
                 LOGGER.info(f"Using GStreamer pipeline for RTSP stream {index}: {source}")
                 
@@ -309,8 +357,13 @@ class LoadStreams:
                 
                 # Kiểm tra xem GStreamer có hoạt động không
                 if not cap.isOpened():
-                    LOGGER.warning(f"GStreamer pipeline failed for stream {index}. Falling back to standard pipeline.")
-                    return False, None
+                    LOGGER.warning(f"GStreamer hardware pipeline failed for stream {index}. Trying software decoder...")
+                    # Thử lại với software decoder
+                    pipeline = self.create_pipeline_for_codec(rtsp_url, use_hardware=False)
+                    cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)
+                    if not cap.isOpened():
+                        LOGGER.warning(f"GStreamer pipeline failed for stream {index}. Falling back to standard pipeline.")
+                        return False, None
                     
                 # Đọc thử một frame để xác nhận pipeline hoạt động
                 ret, _ = cap.read()

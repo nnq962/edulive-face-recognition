@@ -42,3 +42,17 @@ def verify_update_faiss_key(api_key: str = Depends(get_api_key_header)) -> bool:
             detail="Invalid API key"
         )
     return True
+
+
+def verify_supervisor_status_key(api_key: str = Depends(get_api_key_header)) -> bool:
+    """
+    Verify API key for supervisor status endpoint
+    Dùng cho: /api/supervisor/status
+    """
+    if api_key != keys.SUPERVISOR_STATUS_API_KEY:
+        LOGGER.warning(f"Invalid SUPERVISOR_STATUS_API_KEY attempt")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
+    return True
