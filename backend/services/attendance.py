@@ -8,6 +8,7 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 import tempfile
 import os
+import asyncio
 
 from utils import LOGGER
 from backend.schemas.common import PaginationMeta
@@ -766,35 +767,39 @@ async def process_attendance_detections(
             if (send_welcome or send_goodbye) and message:
                 # Kiểm tra user có đăng ký Telegram và có chat_id không
                 if user.get("telegram_subscribed", False) and user.get("telegram_chat_id"):
-                    try:
-                        # Format message đẹp cho Telegram (khác với message trong results)
-                        timestamp_vn_str = timestamp_vn.strftime("%H:%M:%S - %d/%m/%Y")
-                        
-                        if send_welcome:
-                            # Check-in message
-                            telegram_message = (
-                                f"👋 <b>Xin chào {full_name}!</b>\n\n"
-                                f"✅ Đã check-in thành công\n"
-                                f"🕐 Thời gian: {timestamp_vn_str}"
-                            )
-                        else:  # send_goodbye
-                            # Check-out message
-                            telegram_message = (
-                                f"👋 <b>Tạm biệt {full_name}!</b>\n\n"
-                                f"✅ Đã check-out thành công\n"
-                                f"🕐 Thời gian: {timestamp_vn_str}"
-                            )
-                        
-                        await send_telegram_message_to_user(
-                            db,
-                            user_id,
-                            telegram_message,
-                            parse_mode="HTML"
+                    # Format message đẹp cho Telegram (khác với message trong results)
+                    timestamp_vn_str = timestamp_vn.strftime("%H:%M:%S - %d/%m/%Y")
+
+                    if send_welcome:
+                        # Check-in message
+                        telegram_message = (
+                            f"👋 <b>Xin chào {full_name}!</b>\n\n"
+                            f"✅ Đã check-in thành công\n"
+                            f"🕐 Thời gian: {timestamp_vn_str}"
                         )
-                        LOGGER.info(f"Sent Telegram message to user {user_id} ({full_name}): {message}")
-                    except Exception as e:
-                        # Log lỗi nhưng không làm gián đoạn quá trình xử lý
-                        LOGGER.error(f"Failed to send Telegram message to user {user_id}: {e}")
+                    else:  # send_goodbye
+                        # Check-out message
+                        telegram_message = (
+                            f"👋 <b>Tạm biệt {full_name}!</b>\n\n"
+                            f"✅ Đã check-out thành công\n"
+                            f"🕐 Thời gian: {timestamp_vn_str}"
+                        )
+
+                    async def _safe_send():
+                        try:
+                            await send_telegram_message_to_user(
+                                db,
+                                user_id,
+                                telegram_message,
+                                parse_mode="HTML"
+                            )
+                            LOGGER.info(f"Sent Telegram message to user {user_id} ({full_name})")
+                        except Exception as e:
+                            # Log lỗi nhưng không làm gián đoạn quá trình xử lý
+                            LOGGER.error(f"Failed to send Telegram message to user {user_id}: {e}")
+
+                    # Fire-and-forget để API phản hồi nhanh, không chặn theo từng user
+                    asyncio.create_task(_safe_send())
             
             # Thêm kết quả
             results.append({
@@ -812,3 +817,65 @@ async def process_attendance_detections(
             continue
     
     return results
+
+
+async def finalize_today_checkouts(
+    db: AsyncIOMotorDatabase,
+    now_utc: Optional[datetime] = None
+) -> int:
+    """
+    Tự động chốt check_out_time sau 17:30 (giờ Việt Nam) cho các bản ghi hôm nay
+    chưa có check_out_time nhưng đã có timestamps.
+
+    Quy ước ngày:
+    - Trường `date` trong DB lưu tại 17:00:00Z, đại diện cho 00:00:00+07 cùng ngày VN
+    - Ví dụ: 2025-11-02T17:00:00Z đại diện cho ngày 2025-11-03 (VN)
+
+    Args:
+        db: Database instance
+        now_utc: Thời điểm hiện tại (UTC) để test; nếu None sẽ dùng now()
+
+    Returns:
+        int: Số bản ghi được cập nhật
+    """
+
+    # Lấy thời điểm hiện tại theo UTC rồi chuyển sang VN timezone
+    vn_tz = timezone(timedelta(hours=7))
+    if now_utc is None:
+        now_utc = datetime.now(timezone.utc)
+    now_vn = now_utc.astimezone(vn_tz)
+
+    # Chỉ chạy sau 17:30 (giờ VN)
+    if (now_vn.hour, now_vn.minute) < (CHECKOUT_TIME_HOUR, CHECKOUT_TIME_MINUTE):
+        return 0
+
+    # Tính start of day theo VN rồi chuyển về UTC để khớp với trường `date` (17:00Z)
+    today_start_vn = datetime(now_vn.year, now_vn.month, now_vn.day, 0, 0, 0, tzinfo=vn_tz)
+    today_start_utc = today_start_vn.astimezone(timezone.utc)
+
+    attendances_collection = db[ATTENDANCE_COLLECTION]
+
+    # Tìm các record của hôm nay (VN) chưa có check_out_time nhưng có timestamps
+    cursor = attendances_collection.find({
+        "date": today_start_utc,
+        "check_out_time": None,
+        "timestamps": {"$exists": True, "$type": "array", "$ne": []}
+    })
+
+    updates = 0
+    async for record in cursor:
+        timestamps = record.get("timestamps", [])
+        if not timestamps:
+            continue
+        last_ts = timestamps[-1]
+        last_time = last_ts.get("time")
+        # Chỉ cập nhật nếu timestamp cuối là datetime hợp lệ
+        if isinstance(last_time, datetime):
+            await attendances_collection.update_one(
+                {"_id": record["_id"]},
+                {"$set": {"check_out_time": last_time}}
+            )
+            updates += 1
+
+    return updates
+

@@ -5,10 +5,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import asyncio
 
 from config.database import connect_to_mongodb, close_mongodb_connection, create_indexes
 from backend.routes import user, auth, department, attendance, telegram
+from backend.services.attendance import finalize_today_checkouts
 from backend.schemas.common import ApiError
+from config.database import get_database
 from utils import LOGGER
 
 
@@ -24,6 +27,18 @@ async def lifespan(app: FastAPI):
     await connect_to_mongodb()
     await create_indexes()
     LOGGER.info("App đã sẵn sàng!")
+
+    # Khởi chạy vòng lặp nền tự động chốt check_out sau 17:30 VN mỗi phút
+    async def _auto_finalize_loop():
+        db = get_database()
+        while True:
+            try:
+                await finalize_today_checkouts(db)
+            except Exception as e:
+                LOGGER.error(f"auto finalize checkouts failed: {e}")
+            await asyncio.sleep(60)
+
+    asyncio.create_task(_auto_finalize_loop())
     
     yield  # ← App chạy ở đây
     
