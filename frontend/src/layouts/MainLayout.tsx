@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import LogoutIcon from '../assets/icons/logout.svg';
 import { useAuth } from '@/contexts/AuthContext';
+import supervisorStatusApi from '@/api/supervisorstatusApi';
 
 const { Content } = Layout;
 
@@ -77,11 +78,83 @@ const MainLayout: React.FC = () => {
     // Mock số lượng phê duyệt
     const [pendingApprovalsCount] = React.useState(97);
 
-    // Mock trạng thái máy chấm công
-    const [deviceStatus] = React.useState({
-        isOnline: true, // true = online (xanh), false = offline (đỏ)
-        lastUpdate: '14:30', // Thời gian từ API
+    // Trạng thái máy chấm công từ API - load từ localStorage nếu có
+    const [deviceStatus, setDeviceStatus] = React.useState(() => {
+        const saved = localStorage.getItem('deviceStatus');
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch (error) {
+                console.error('Error parsing saved device status:', error);
+            }
+        }
+        return {
+            isOnline: false, // true = online (xanh), false = offline (đỏ)
+            lastUpdate: '--:--', // Thời gian từ API
+        };
     });
+
+    // Hàm convert UTC timestamp sang VN time (UTC+7) và format thành HH:mm
+    const formatTimestampToVN = (utcTimestamp: string): string => {
+        try {
+            const date = new Date(utcTimestamp);
+            // Lấy UTC hours và minutes, sau đó cộng thêm 7 giờ (VN time = UTC+7)
+            let hours = date.getUTCHours() + 7;
+            const minutes = date.getUTCMinutes();
+            
+            // Xử lý trường hợp vượt quá 24 giờ
+            if (hours >= 24) {
+                hours = hours - 24;
+            }
+            
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        } catch (error) {
+            console.error('Error formatting timestamp:', error);
+            return '--:--';
+        }
+    };
+
+    // Hàm fetch trạng thái device từ API
+    const fetchDeviceStatus = React.useCallback(async () => {
+        try {
+            const response = await supervisorStatusApi.getServiceStatus();
+            const data = response.data;
+            
+            if (data) {
+                const newStatus = {
+                    isOnline: data.is_running || false,
+                    lastUpdate: formatTimestampToVN(data.timestamp || new Date().toISOString()),
+                };
+                setDeviceStatus(newStatus);
+                // Lưu vào localStorage để dùng khi reload
+                localStorage.setItem('deviceStatus', JSON.stringify(newStatus));
+            }
+        } catch (error: any) {
+            console.error('Error fetching device status:', error);
+            console.error('Error details:', {
+                message: error?.message,
+                response: error?.response?.data,
+                status: error?.response?.status,
+                statusText: error?.response?.statusText,
+            });
+            // Giữ nguyên trạng thái cũ nếu có lỗi
+        }
+    }, []);
+
+    // Gọi API khi component mount và refresh định kỳ
+    React.useEffect(() => {
+        // Gọi ngay lập tức
+        fetchDeviceStatus();
+
+        // Refresh mỗi 30 giây
+        const interval = setInterval(() => {
+            fetchDeviceStatus();
+        }, 30000);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, [fetchDeviceStatus]);
 
     // Hàm xử lý logout
     const handleLogout = () => {
@@ -351,7 +424,7 @@ const MainLayout: React.FC = () => {
                                             borderRadius: '50%',
                                             background: deviceStatus.isOnline ? '#52c41a' : '#ff4d4f',
                                             position: 'absolute',
-                                            animation: 'ripple 1s cubic-bezier(0, 0, 0.2, 1) infinite',
+                                            animation: 'ripple 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
                                         }}
                                     />
                                 </div>

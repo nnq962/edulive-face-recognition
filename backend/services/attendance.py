@@ -553,10 +553,41 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
         cell.border = border
         
         # Tổng giờ
+        # Quy tắc: 
+        # - Nếu check out trước 13h30: Tổng giờ = 12h - check in
+        # - Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (nghỉ trưa)
         cell = ws.cell(row=row_num, column=9)
         if check_in and check_out:
             if isinstance(check_in, datetime) and isinstance(check_out, datetime):
-                diff_minutes = (check_out - check_in).total_seconds() / 60
+                # Chuyển sang giờ Việt Nam (UTC+7) để check thời gian
+                vn_tz = timezone(timedelta(hours=7))
+                check_out_vn = check_out.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+                
+                # Kiểm tra check out có trước 13h30 không
+                check_out_hour = check_out_vn.hour
+                check_out_minute = check_out_vn.minute
+                is_before_lunch = check_out_hour < 13 or (check_out_hour == 13 and check_out_minute < 30)
+                
+                if is_before_lunch:
+                    # Nếu check out trước 13h30: Tổng giờ = 12h - check in
+                    check_in_vn = check_in.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+                    noon = datetime(
+                        check_in_vn.year, 
+                        check_in_vn.month, 
+                        check_in_vn.day, 
+                        12, 0, 0, 
+                        tzinfo=vn_tz
+                    )
+                    noon_utc = noon.astimezone(timezone.utc)
+                    diff_minutes = (noon_utc - check_in).total_seconds() / 60
+                else:
+                    # Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (90 phút)
+                    diff_minutes = (check_out - check_in).total_seconds() / 60 - 90
+                
+                # Đảm bảo không âm
+                if diff_minutes < 0:
+                    diff_minutes = 0
+                
                 hours = int(diff_minutes // 60)
                 minutes = int(diff_minutes % 60)
                 cell.value = f"{hours}h {minutes}m"

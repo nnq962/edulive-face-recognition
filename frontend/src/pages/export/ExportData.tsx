@@ -143,15 +143,38 @@ const ExportData: React.FC = () => {
   }
 
   // Helper function để tính tổng giờ làm việc
+  // Quy tắc: 
+  // - Nếu check out trước 13h30: Tổng giờ = 12h - check in
+  // - Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (nghỉ trưa)
   const calculateTotalHours = (checkIn: string | null, checkOut: string | null): string => {
     if (!checkIn || !checkOut) return '0h 0m'
 
     const start = dayjs(checkIn)
     const end = dayjs(checkOut)
-    const diffMinutes = end.diff(start, 'minute')
-
-    const hours = Math.floor(diffMinutes / 60)
-    const minutes = diffMinutes % 60
+    
+    // Kiểm tra check out có trước 13h30 không
+    const checkOutHour = end.hour()
+    const checkOutMinute = end.minute()
+    const isBeforeLunch = checkOutHour < 13 || (checkOutHour === 13 && checkOutMinute < 30)
+    
+    let totalMinutes: number
+    
+    // Nếu check out trước 13h30: Tổng giờ = 12h - check in
+    if (isBeforeLunch) {
+      const noon = dayjs(start).hour(12).minute(0).second(0).millisecond(0)
+      totalMinutes = noon.diff(start, 'minute')
+    } 
+    // Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (90 phút)
+    else {
+      const diffMinutes = end.diff(start, 'minute')
+      totalMinutes = diffMinutes - 90 // Trừ 1.5h nghỉ trưa
+    }
+    
+    // Đảm bảo không âm
+    if (totalMinutes < 0) totalMinutes = 0
+    
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
 
     return `${hours}h ${minutes}m`
   }
