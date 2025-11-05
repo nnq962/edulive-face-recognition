@@ -559,9 +559,21 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
         cell = ws.cell(row=row_num, column=9)
         if check_in and check_out:
             if isinstance(check_in, datetime) and isinstance(check_out, datetime):
+                # Đảm bảo cả check_in và check_out đều có timezone UTC
+                # Nếu chưa có timezone, thêm UTC timezone vào
+                if check_in.tzinfo is None:
+                    check_in = check_in.replace(tzinfo=timezone.utc)
+                elif check_in.tzinfo != timezone.utc:
+                    check_in = check_in.astimezone(timezone.utc)
+                
+                if check_out.tzinfo is None:
+                    check_out = check_out.replace(tzinfo=timezone.utc)
+                elif check_out.tzinfo != timezone.utc:
+                    check_out = check_out.astimezone(timezone.utc)
+                
                 # Chuyển sang giờ Việt Nam (UTC+7) để check thời gian
                 vn_tz = timezone(timedelta(hours=7))
-                check_out_vn = check_out.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+                check_out_vn = check_out.astimezone(vn_tz)
                 
                 # Kiểm tra check out có trước 13h30 không
                 check_out_hour = check_out_vn.hour
@@ -570,7 +582,7 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
                 
                 if is_before_lunch:
                     # Nếu check out trước 13h30: Tổng giờ = 12h - check in
-                    check_in_vn = check_in.replace(tzinfo=timezone.utc).astimezone(vn_tz)
+                    check_in_vn = check_in.astimezone(vn_tz)
                     noon = datetime(
                         check_in_vn.year, 
                         check_in_vn.month, 
