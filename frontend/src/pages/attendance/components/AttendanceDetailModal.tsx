@@ -28,7 +28,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
     const [loadingCheckIn, setLoadingCheckIn] = useState(false)
     const [loadingCheckOut, setLoadingCheckOut] = useState(false)
 
-    // Fetch ảnh check in
+    // Fetch ảnh check-in
     useEffect(() => {
         if (!record || record.checkIn === '-') {
             setCheckInImageUrl(null)
@@ -41,7 +41,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 const url = await attendancesApi.getAttendanceImage(record.date, 'check_in')
                 setCheckInImageUrl(url)
             } catch (error) {
-                console.error('Error loading check in image:', error)
+                console.error('Error loading check-in image:', error)
                 setCheckInImageUrl(null)
             } finally {
                 setLoadingCheckIn(false)
@@ -51,7 +51,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
         fetchCheckInImage()
     }, [record])
 
-    // Fetch ảnh check out
+    // Fetch ảnh check-out
     useEffect(() => {
         if (!record || record.checkOut === '-') {
             setCheckOutImageUrl(null)
@@ -64,7 +64,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                 const url = await attendancesApi.getAttendanceImage(record.date, 'check_out')
                 setCheckOutImageUrl(url)
             } catch (error) {
-                console.error('Error loading check out image:', error)
+                console.error('Error loading check-out image:', error)
                 setCheckOutImageUrl(null)
             } finally {
                 setLoadingCheckOut(false)
@@ -300,7 +300,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                     gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
                     gap: 16
                 }}>
-                    {/* Check In */}
+                    {/* check-in */}
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -316,14 +316,14 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                             marginBottom: 4,
                             color: '#1890ff'
                         }}>
-                            Check in
+                            Check-in
                         </div>
                         {checkInImageUrl ? (
                             <Image
                                 width={270}
                                 height={200}
                                 src={checkInImageUrl}
-                                alt="Check in"
+                                alt="Check-in"
                                 style={{
                                     borderRadius: 8,
                                     objectFit: 'cover',
@@ -361,7 +361,7 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                         </Button> */}
                     </div>
 
-                    {/* Check Out */}
+                    {/* check-out */}
                     <div style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -377,14 +377,14 @@ const AttendanceDetailModal: React.FC<AttendanceDetailModalProps> = ({ open, onC
                             marginBottom: 4,
                             color: '#52c41a'
                         }}>
-                            Check out
+                            Check-out
                         </div>
                         {checkOutImageUrl ? (
                             <Image
                                 width={270}
                                 height={200}
                                 src={checkOutImageUrl}
-                                alt="Check out"
+                                alt="Check-out"
                                 style={{
                                     borderRadius: 8,
                                     objectFit: 'cover',

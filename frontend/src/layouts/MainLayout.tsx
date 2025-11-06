@@ -147,6 +147,11 @@ const MainLayout: React.FC = () => {
         }
     }, []);
 
+    // Hiển thị thông báo maintenance khi component mount (mỗi lần reload)
+    React.useEffect(() => {
+        message.warning("The check-in/check-out image viewer is under maintenance. We'll be back soon!");
+    }, []);
+
     // Gọi API khi component mount và refresh định kỳ
     React.useEffect(() => {
         // Gọi ngay lập tức
