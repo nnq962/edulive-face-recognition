@@ -78,20 +78,10 @@ const MainLayout: React.FC = () => {
     // Mock số lượng phê duyệt
     const [pendingApprovalsCount] = React.useState(97);
 
-    // Trạng thái máy chấm công từ API - load từ localStorage nếu có
-    const [deviceStatus, setDeviceStatus] = React.useState(() => {
-        const saved = localStorage.getItem('deviceStatus');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (error) {
-                console.error('Error parsing saved device status:', error);
-            }
-        }
-        return {
-            isOnline: false, // true = online (xanh), false = offline (đỏ)
-            lastUpdate: '--:--', // Thời gian từ API
-        };
+    // Trạng thái máy chấm công từ API - luôn bắt đầu với trạng thái không hoạt động
+    const [deviceStatus, setDeviceStatus] = React.useState({
+        isOnline: false, // true = online (xanh), false = offline (đỏ)
+        lastUpdate: '--:--', // Thời gian từ API
     });
 
     // Hàm convert UTC timestamp sang VN time (UTC+7) và format thành HH:mm
@@ -126,8 +116,17 @@ const MainLayout: React.FC = () => {
                     lastUpdate: formatTimestampToVN(data.timestamp || new Date().toISOString()),
                 };
                 setDeviceStatus(newStatus);
-                // Lưu vào localStorage để dùng khi reload
+                // Chỉ lưu vào localStorage khi API thành công
                 localStorage.setItem('deviceStatus', JSON.stringify(newStatus));
+            } else {
+                // Nếu không có data hợp lệ, set trạng thái không hoạt động
+                const errorStatus = {
+                    isOnline: false,
+                    lastUpdate: '--:--',
+                };
+                setDeviceStatus(errorStatus);
+                // Xóa localStorage để không dùng trạng thái cũ
+                localStorage.removeItem('deviceStatus');
             }
         } catch (error: any) {
             console.error('Error fetching device status:', error);
@@ -137,7 +136,14 @@ const MainLayout: React.FC = () => {
                 status: error?.response?.status,
                 statusText: error?.response?.statusText,
             });
-            // Giữ nguyên trạng thái cũ nếu có lỗi
+            // Khi API fail, set trạng thái không hoạt động
+            const errorStatus = {
+                isOnline: false,
+                lastUpdate: '--:--',
+            };
+            setDeviceStatus(errorStatus);
+            // Xóa localStorage để không dùng trạng thái cũ
+            localStorage.removeItem('deviceStatus');
         }
     }, []);
 
@@ -384,8 +390,8 @@ const MainLayout: React.FC = () => {
                         {/* Active Dot with Ripple Effect */}
                         <Tooltip
                             title={deviceStatus.isOnline
-                                ? `MCC đang hoạt động (${deviceStatus.lastUpdate})`
-                                : `MCC không hoạt động (${deviceStatus.lastUpdate})`
+                                ? `Máy chấm công đang hoạt động (${deviceStatus.lastUpdate})`
+                                : `Máy chấm công không hoạt động`
                             }
                             placement="left"
                             arrow={false}
