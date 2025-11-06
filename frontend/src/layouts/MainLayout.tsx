@@ -3,13 +3,14 @@ import { Layout, Badge, Tooltip, message } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
     MenuOutlined,
-    VideoCameraOutlined,
+    HomeOutlined,
     DatabaseOutlined,
     CheckCircleOutlined,
     UserOutlined,
     SettingOutlined,
     ScheduleOutlined,
-    LogoutOutlined
+    LogoutOutlined,
+    CalendarOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import supervisorStatusApi from '@/api/supervisorstatusApi';
@@ -19,7 +20,7 @@ const { Content } = Layout;
 // Map routes với icon và title
 const routeConfig: Record<string, { icon: React.ReactNode; title: string; allowedRoles: string[] }> = {
     '/attendance': { 
-        icon: <VideoCameraOutlined />, 
+        icon: <CalendarOutlined />, 
         title: 'Chấm công',
         allowedRoles: ['user', 'admin', 'super_admin'] // Tất cả đều thấy
     },
@@ -50,7 +51,7 @@ const MainLayout: React.FC = () => {
     const navigate = useNavigate();
     const { user, setUser } = useAuth(); // Thêm setUser để reset user
     const currentPath = `/${location.pathname.split('/')[1] || 'attendance'}`;
-    const currentRoute = routeConfig[currentPath] || { icon: <VideoCameraOutlined />, title: 'Chấm công', allowedRoles: [] };
+    const currentRoute = routeConfig[currentPath] || { icon: <CalendarOutlined />, title: 'Chấm công', allowedRoles: [] };
     // Lọc menu theo role của user
     const filteredRoutes = React.useMemo(() => {
         if (!user) return {}; // Nếu chưa có user thì không hiển thị menu nào
@@ -259,7 +260,7 @@ const MainLayout: React.FC = () => {
                         gap: '8px',
                     }}
                 >
-                    <ScheduleOutlined style={{ fontSize: '16px', color: '#000' }} />
+                    <HomeOutlined style={{ fontSize: '16px', color: '#000' }} />
                     <span style={{ fontSize: '16px', fontWeight: 700, color: '#000' }}>Hệ thống chấm công</span>
                 </div>
 
