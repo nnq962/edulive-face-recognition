@@ -8,9 +8,9 @@ import {
     CheckCircleOutlined,
     UserOutlined,
     SettingOutlined,
-    ScheduleOutlined
+    ScheduleOutlined,
+    LogoutOutlined
 } from '@ant-design/icons';
-import LogoutIcon from '../assets/icons/logout.svg';
 import { useAuth } from '@/contexts/AuthContext';
 import supervisorStatusApi from '@/api/supervisorstatusApi';
 
@@ -463,14 +463,10 @@ const MainLayout: React.FC = () => {
                             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                             onClick={handleLogout}
                         >
-                            <img
-                                src={LogoutIcon}
-                                alt="logout"
+                            <LogoutOutlined
                                 style={{
-                                    width: '20px',
-                                    height: '20px',
-                                    filter: 'brightness(0) saturate(100%) invert(27%) sepia(94%) saturate(3529%) hue-rotate(346deg) brightness(99%) contrast(102%)',
-                                    transform: isMobile ? 'scaleX(-1)' : undefined,
+                                    fontSize: '16px',
+                                    color: 'red',
                                 }}
                             />
                         </div>
