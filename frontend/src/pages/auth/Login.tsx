@@ -51,7 +51,17 @@ const Login: React.FC = () => {
       message.success("Login successful");
       navigate("/", { replace: true });
     } catch (err: any) {
-      message.error(err.response?.data?.message || "Invalid username/email or password");
+      // Phân biệt giữa network error và authentication error
+      if (!err.response) {
+        // Network error - không thể kết nối đến server
+        message.error("Failed to connect to server");
+      } else if (err.response.status === 401) {
+        // Authentication error - sai username/password
+        message.error(err.response?.data?.message || "Invalid username/email or password");
+      } else {
+        // Lỗi khác từ server
+        message.error(err.response?.data?.message || "An error occurred. Please try again");
+      }
     } finally {
       setLoading(false);
     }
