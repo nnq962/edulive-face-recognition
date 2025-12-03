@@ -8,6 +8,7 @@ import Highlighter from 'react-highlight-words'
 import EmployeeManagementDetailModal from './EmployeeManagementDetailModal'
 import EmployeeManagementAddUserModal from './EmployeeManagementAddUserModal'
 import { employeesApi } from '@/api'
+import { useDepartments } from '@/contexts/DepartmentsContext';
 
 interface EmployeeData {
     key: string
