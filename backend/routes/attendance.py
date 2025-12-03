@@ -4,6 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime
 from typing import Optional, Literal
 from pathlib import Path
+import asyncio
 
 from backend.schemas.attendance import (
     AttendanceResponse, 
@@ -18,7 +19,8 @@ from backend.services.attendance import (
     get_monthly_attendance_report, 
     get_monthly_attendance_report_for_export, 
     generate_excel_report,
-    process_attendance_detections
+    process_attendance_detections,
+    sync_attendance_to_orangehrm
 )
 from config.dependencies import get_db, get_current_active_user, require_admin
 from utils import LOGGER
@@ -560,12 +562,15 @@ async def process_detections(
             for item in request.data
         ]
         
-        # Gọi service xử lý
+        # Xử lý MongoDB trước
         results = await process_attendance_detections(
             db=db,
             timestamp=request.timestamp,
             detections=detections
         )
+
+        # Đồng bộ MySQL sau (fire-and-forget, không chặn response)
+        asyncio.create_task(sync_attendance_to_orangehrm(db, results))
         
         LOGGER.info(f"Successfully processed {len(results)} users")
         

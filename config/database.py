@@ -2,14 +2,20 @@
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from typing import Optional
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from config.base import BaseConfig
 from utils import LOGGER
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
+from sqlalchemy import text
+from urllib.parse import quote_plus
 
 
 class DatabaseConfig(BaseConfig):
     """
-    MongoDB Configuration
+    Database Configuration (MongoDB & MySQL)
     """
+    # MongoDB Configuration
     MONGODB_USER: str
     MONGODB_PASSWORD: str
     MONGODB_HOST: str = "localhost"
@@ -17,13 +23,23 @@ class DatabaseConfig(BaseConfig):
     MONGODB_NAME: str
     MONGODB_AUTHSOURCE: str = "admin"
     
+    # MySQL Configuration
+    MYSQL_USER: str
+    MYSQL_PASSWORD: str
+    MYSQL_HOST: str = "localhost"
+    MYSQL_PORT: int = 3306
+    MYSQL_DATABASE: str
+    
     @property
     def MONGODB_URL(self) -> str:
         """
         Tạo MongoDB connection string với authentication
+        URL encode username và password để xử lý ký tự đặc biệt như @, :, /, etc.
         """
+        encoded_user = quote_plus(self.MONGODB_USER)
+        encoded_password = quote_plus(self.MONGODB_PASSWORD)
         return (
-            f"mongodb://{self.MONGODB_USER}:{self.MONGODB_PASSWORD}"
+            f"mongodb://{encoded_user}:{encoded_password}"
             f"@{self.MONGODB_HOST}:{self.MONGODB_PORT}"
             f"/?authSource={self.MONGODB_AUTHSOURCE}"
         )
@@ -38,6 +54,29 @@ class DatabaseConfig(BaseConfig):
             f"@{self.MONGODB_HOST}:{self.MONGODB_PORT}"
             f"/?authSource={self.MONGODB_AUTHSOURCE}"
         )
+    
+    @property
+    def MYSQL_URL(self) -> str:
+        """
+        Tạo MySQL connection string với authentication
+        URL encode username và password để xử lý ký tự đặc biệt như @, :, /, etc.
+        """
+        encoded_user = quote_plus(self.MYSQL_USER)
+        encoded_password = quote_plus(self.MYSQL_PASSWORD)
+        return (
+            f"mysql+aiomysql://{encoded_user}:{encoded_password}"
+            f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
+        )
+    
+    @property
+    def MYSQL_URL_SAFE(self) -> str:
+        """
+        MySQL URL để log (ẩn password)
+        """
+        return (
+            f"mysql+aiomysql://{self.MYSQL_USER}:****"
+            f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
+        )
 
 
 # Load config
@@ -46,6 +85,10 @@ db_config = DatabaseConfig()
 # Global variables
 mongodb_client: Optional[AsyncIOMotorClient] = None
 mongodb_database: Optional[AsyncIOMotorDatabase] = None
+
+# MySQL global variables
+mysql_engine: Optional[AsyncEngine] = None
+mysql_sessionmaker: Optional[async_sessionmaker[AsyncSession]] = None
 
 
 async def connect_to_mongodb() -> None:
@@ -161,3 +204,81 @@ def get_collection(collection_name: str):
     """
     db = get_database()
     return db[collection_name]
+
+
+# =========================================================
+# MYSQL CONNECTION FUNCTIONS
+# =========================================================
+
+async def connect_to_mysql() -> None:
+    """
+    Kết nối đến MySQL
+    
+    Raises:
+        Exception: Nếu không thể kết nối đến MySQL
+    """
+    global mysql_engine, mysql_sessionmaker
+    
+    try:
+        LOGGER.info(f"Đang kết nối đến MySQL: {db_config.MYSQL_URL_SAFE}")
+        
+        # Tạo MySQL async engine
+        mysql_engine = create_async_engine(
+            db_config.MYSQL_URL,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,  # Kiểm tra connection trước khi sử dụng
+            echo=False  # Set True để log SQL queries (debug mode)
+        )
+        
+        # Tạo sessionmaker
+        mysql_sessionmaker = async_sessionmaker(
+            mysql_engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+        
+        # Test connection
+        async with mysql_engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        
+        LOGGER.info(f"Kết nối MySQL thành công! Database: {db_config.MYSQL_DATABASE}")
+        
+    except Exception as e:
+        LOGGER.error(f"Không thể kết nối đến MySQL: {e}")
+        raise Exception(f"MySQL connection failed: {e}")
+
+
+async def close_mysql_connection() -> None:
+    """
+    Đóng kết nối MySQL
+    """
+    global mysql_engine
+    
+    if mysql_engine:
+        await mysql_engine.dispose()
+        LOGGER.info("Đã đóng kết nối MySQL")
+
+
+@asynccontextmanager
+async def get_mysql_session() -> AsyncIterator[AsyncSession]:
+    """
+    Cung cấp MySQL async session theo dạng context manager
+    
+    Usage:
+        async with get_mysql_session() as session:
+            await session.execute(...)
+            await session.commit()
+    
+    Raises:
+        Exception: Nếu MySQL chưa được khởi tạo
+    """
+    if mysql_sessionmaker is None:
+        LOGGER.error("MySQL chưa được khởi tạo. Hãy gọi connect_to_mysql() trước.")
+        raise Exception("MySQL not initialized. Call connect_to_mysql() first.")
+    
+    session = mysql_sessionmaker()
+    try:
+        yield session
+    finally:
+        await session.close()

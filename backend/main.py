@@ -7,7 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 
-from config.database import connect_to_mongodb, close_mongodb_connection, create_indexes
+from config.database import (
+    connect_to_mongodb, 
+    close_mongodb_connection, 
+    create_indexes,
+    connect_to_mysql,
+    close_mysql_connection
+)
 from backend.routes import user, auth, department, attendance, telegram
 from backend.services.attendance import finalize_today_checkouts
 from backend.schemas.common import ApiError
@@ -26,6 +32,7 @@ async def lifespan(app: FastAPI):
     LOGGER.info("App đang khởi động...")
     await connect_to_mongodb()
     await create_indexes()
+    await connect_to_mysql()
     LOGGER.info("App đã sẵn sàng!")
 
     # Khởi chạy vòng lặp nền tự động chốt check_out sau 17:30 VN mỗi phút
@@ -45,6 +52,7 @@ async def lifespan(app: FastAPI):
     # ========== SHUTDOWN ==========
     LOGGER.info("App đang tắt...")
     await close_mongodb_connection()
+    await close_mysql_connection()
     LOGGER.info("Đã đóng kết nối!")
 
 

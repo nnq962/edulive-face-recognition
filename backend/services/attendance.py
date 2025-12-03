@@ -14,6 +14,12 @@ from utils import LOGGER
 from backend.schemas.common import PaginationMeta
 from backend.utils.pagination import PaginationParams, calculate_pagination_meta
 from backend.services.telegram import send_telegram_message_to_user
+from backend.utils.ohrm_helpers import (
+    get_employee_ids,
+    batch_punch_in,
+    batch_punch_out,
+    PunchCommand
+)
 
 ATTENDANCE_COLLECTION = "attendances"
 USER_COLLECTION = "users"
@@ -631,12 +637,12 @@ async def process_attendance_detections(
     """
     Xử lý batch detections từ client và cập nhật database
     
-    Business Logic:
-    1. Check-in: Lần đầu tiên trong ngày xuất hiện (trước 17h30)
-    2. Check-out: Sau 17h30, check_out_time luôn là timestamp cuối cùng
-    3. Welcome: Chỉ hiển thị 1 lần khi check-in đầu tiên
-    4. Goodbye: Sau 17h30 khi detect được
-    5. Sau 17h30: Không cho check-in nữa, check_in_time = None, chỉ có check-out
+    Business Logic (ĐÃ CẬP NHẬT):
+    1. Check-in: Cho phép bất kỳ lúc nào (cả sau 17h30)
+    2. Check-in sau 17h30: KHÔNG gửi welcome, KHÔNG gửi Telegram
+    3. Check-out: Sau 17h30, check_out_time luôn là timestamp cuối cùng
+    4. Welcome: Chỉ hiển thị khi check-in trước 17h30
+    5. Goodbye: Sau 17h30 khi detect được (gửi Telegram)
     6. Bonus: check_in_time luôn là timestamp đầu tiên, 
               check_out_time chỉ update sau 17h30 (luôn là timestamp cuối cùng)
     
@@ -726,7 +732,7 @@ async def process_attendance_detections(
                 updated_timestamps = existing_record.get("timestamps", []) + new_timestamps
                 
                 if is_after_checkout_time:
-                    # SAU 17H30 - Chỉ update check_out_time
+                    # SAU 17H30 - Update check_out_time
                     action = "check_out"
                     
                     # Chỉ gửi goodbye nếu chưa gửi trước đó
@@ -771,19 +777,21 @@ async def process_attendance_detections(
                 # CHƯA CÓ RECORD TRONG NGÀY - Tạo mới
                 
                 if is_after_checkout_time:
-                    # SAU 17H30 - Chỉ tạo check_out, không có check_in
-                    action = "after_hours_only"
-                    send_goodbye = True
+                    # SAU 17H30 - Tạo record với check_in và check_out
+                    # NHƯNG KHÔNG GỬI WELCOME/TELEGRAM
+                    action = "check_in_and_out_after_hours"
+                    send_welcome = False  # KHÔNG gửi welcome
+                    send_goodbye = True   # Vẫn gửi goodbye
                     message = f"Tạm biệt {full_name}"
                     
                     new_record = {
                         "date": today_start,
                         "user_id": ObjectId(user_id),
                         "full_name": full_name,
-                        "check_in_time": None,  # Không có check-in
-                        "check_out_time": timestamp,
+                        "check_in_time": timestamp,  # Có check-in nhưng không thông báo
+                        "check_out_time": timestamp,  # Luôn cập nhật check-out
                         "timestamps": new_timestamps,
-                        "welcome_noti": False,
+                        "welcome_noti": False,  # KHÔNG gửi welcome
                         "goodbye_noti": True
                     }
                 else:
@@ -844,14 +852,18 @@ async def process_attendance_detections(
                     # Fire-and-forget để API phản hồi nhanh, không chặn theo từng user
                     asyncio.create_task(_safe_send())
             
-            # Thêm kết quả
+            # Thêm kết quả (bao gồm thông tin cần thiết cho MySQL sync)
             results.append({
                 "user_id": user_id,
                 "full_name": full_name,
+                "email": user.get("email"),  # ← THÊM EMAIL cho MySQL sync
                 "action": action,
                 "send_welcome": send_welcome,
                 "send_goodbye": send_goodbye,
-                "message": message
+                "message": message,
+                "timestamp": timestamp,  # ← THÊM timestamp cho MySQL
+                "camera_id": user_detections[0]["camera_id"],  # ← THÊM camera_id
+                "similarity": user_detections[0]["similarity"]  # ← THÊM similarity
             })
         
         except Exception as e:
@@ -862,6 +874,110 @@ async def process_attendance_detections(
     return results
 
 
+async def sync_attendance_to_orangehrm(
+    db: AsyncIOMotorDatabase,
+    results: List[Dict[str, Any]]
+) -> None:
+    """
+    Đồng bộ dữ liệu attendance từ MongoDB sang MySQL (OrangeHRM).
+    
+    Hàm này được gọi fire-and-forget sau khi MongoDB đã lưu thành công.
+    Nếu MySQL lỗi, không ảnh hưởng đến dữ liệu MongoDB.
+    
+    Args:
+        db: MongoDB database instance
+        results: Kết quả từ process_attendance_detections
+    """
+    
+    try:
+        # 1. Lọc ra các user có email (bỏ qua user không có email)
+        users_with_email = [r for r in results if r.get("email")]
+        
+        if not users_with_email:
+            LOGGER.warning("Không có user nào có email để sync sang OrangeHRM")
+            return
+        
+        # 2. Lấy danh sách emails
+        emails = [r["email"] for r in users_with_email]
+        
+        # 3. Map email -> emp_id từ OrangeHRM
+        email_to_emp_id = await get_employee_ids(emails)
+        
+        if not email_to_emp_id:
+            LOGGER.warning("Không tìm thấy employee nào trong OrangeHRM")
+            return
+        
+        # 4. Group theo action: check_in / check_out
+        punch_in_records: List[PunchCommand] = []
+        punch_out_records: List[PunchCommand] = []
+        
+        for result in users_with_email:
+            email = result["email"]
+            emp_id = email_to_emp_id.get(email)
+            
+            # Skip nếu không tìm thấy emp_id
+            if not emp_id:
+                LOGGER.warning(f"Không tìm thấy emp_id cho email: {email}")
+                continue
+            
+            action = result["action"]
+            timestamp = result["timestamp"]
+            camera_id = result.get("camera_id", "unknown")
+            similarity = result.get("similarity", 0.0)
+            
+            # Format note đẹp
+            note = f"Face Recognition | Camera: {camera_id} | Similarity: {similarity:.2%}"
+            
+            # Phân loại action
+            if action == "check_in":
+                # Check-in trước 17h30
+                punch_in_records.append({
+                    "emp_id": emp_id,
+                    "time": timestamp,
+                    "note": note
+                })
+            
+            elif action == "check_in_and_out_after_hours":
+                # Check-in sau 17h30 (có cả check-in và check-out)
+                punch_in_records.append({
+                    "emp_id": emp_id,
+                    "time": timestamp,
+                    "note": note
+                })
+                punch_out_records.append({
+                    "emp_id": emp_id,
+                    "time": timestamp,
+                    "note": note
+                })
+            
+            elif action == "check_out":
+                # Check-out sau 17h30
+                punch_out_records.append({
+                    "emp_id": emp_id,
+                    "time": timestamp,
+                    "note": note
+                })
+        
+        # 5. Gọi batch punch in/out
+        if punch_in_records:
+            try:
+                await batch_punch_in(punch_in_records)
+                LOGGER.info(f"Sync OrangeHRM Punch In: {len(punch_in_records)} records")
+            except Exception as e:
+                LOGGER.error(f"Lỗi khi sync Punch In sang OrangeHRM: {e}")
+        
+        if punch_out_records:
+            try:
+                await batch_punch_out(punch_out_records)
+                LOGGER.info(f"Sync OrangeHRM Punch Out: {len(punch_out_records)} records")
+            except Exception as e:
+                LOGGER.error(f"Lỗi khi sync Punch Out sang OrangeHRM: {e}")
+    
+    except Exception as e:
+        # Log lỗi nhưng KHÔNG raise để không ảnh hưởng MongoDB
+        LOGGER.error(f"Lỗi tổng thể khi sync sang OrangeHRM: {e}")
+
+
 async def finalize_today_checkouts(
     db: AsyncIOMotorDatabase,
     now_utc: Optional[datetime] = None
@@ -869,6 +985,8 @@ async def finalize_today_checkouts(
     """
     Tự động chốt check_out_time sau 17:30 (giờ Việt Nam) cho các bản ghi hôm nay
     chưa có check_out_time nhưng đã có timestamps.
+    
+    Đồng thời đồng bộ check_out sang MySQL (OrangeHRM).
 
     Quy ước ngày:
     - Trường `date` trong DB lưu tại 17:00:00Z, đại diện cho 00:00:00+07 cùng ngày VN
@@ -897,6 +1015,7 @@ async def finalize_today_checkouts(
     today_start_utc = today_start_vn.astimezone(timezone.utc)
 
     attendances_collection = db[ATTENDANCE_COLLECTION]
+    users_collection = db[USER_COLLECTION]
 
     # Tìm các record của hôm nay (VN) chưa có check_out_time nhưng có timestamps
     cursor = attendances_collection.find({
@@ -906,19 +1025,102 @@ async def finalize_today_checkouts(
     })
 
     updates = 0
+    mysql_sync_data = []  # Lưu data để sync sang MySQL
+    
     async for record in cursor:
         timestamps = record.get("timestamps", [])
         if not timestamps:
             continue
+        
         last_ts = timestamps[-1]
         last_time = last_ts.get("time")
+        
         # Chỉ cập nhật nếu timestamp cuối là datetime hợp lệ
         if isinstance(last_time, datetime):
+            # Cập nhật MongoDB
             await attendances_collection.update_one(
                 {"_id": record["_id"]},
                 {"$set": {"check_out_time": last_time}}
             )
             updates += 1
+            
+            # Lưu thông tin để sync MySQL
+            user_id = record.get("user_id")
+            if user_id:
+                # Lấy thông tin user để có email
+                user = await users_collection.find_one({"_id": user_id})
+                if user and user.get("email"):
+                    camera_id = last_ts.get("camera_id", "unknown")
+                    similarity = last_ts.get("similarity", 0.0)
+                    
+                    mysql_sync_data.append({
+                        "email": user["email"],
+                        "timestamp": last_time,
+                        "camera_id": camera_id,
+                        "similarity": similarity
+                    })
+
+    # Đồng bộ sang MySQL (fire-and-forget)
+    if mysql_sync_data:
+        asyncio.create_task(_sync_finalize_checkouts_to_mysql(mysql_sync_data))
+        LOGGER.info(f"Scheduled MySQL sync for {len(mysql_sync_data)} finalized checkouts")
 
     return updates
 
+
+async def _sync_finalize_checkouts_to_mysql(sync_data: List[Dict[str, Any]]) -> None:
+    """
+    Đồng bộ các checkout đã finalize sang MySQL (OrangeHRM).
+    
+    Hàm helper được gọi fire-and-forget từ finalize_today_checkouts.
+    
+    Args:
+        sync_data: List[{email, timestamp, camera_id, similarity}]
+    """
+    
+    try:
+        # 1. Lấy danh sách emails
+        emails = [item["email"] for item in sync_data]
+        
+        # 2. Map email -> emp_id từ OrangeHRM
+        email_to_emp_id = await get_employee_ids(emails)
+        
+        if not email_to_emp_id:
+            LOGGER.warning("Không tìm thấy employee nào trong OrangeHRM để finalize checkout")
+            return
+        
+        # 3. Tạo punch_out records
+        punch_out_records: List[PunchCommand] = []
+        
+        for item in sync_data:
+            email = item["email"]
+            emp_id = email_to_emp_id.get(email)
+            
+            if not emp_id:
+                LOGGER.warning(f"Không tìm thấy emp_id cho email: {email}")
+                continue
+            
+            timestamp = item["timestamp"]
+            camera_id = item.get("camera_id", "unknown")
+            similarity = item.get("similarity", 0.0)
+            
+            # Format note đẹp
+            note = f"Auto Finalized | Camera: {camera_id} | Similarity: {similarity:.2%}"
+            
+            punch_out_records.append({
+                "emp_id": emp_id,
+                "time": timestamp,
+                "note": note
+            })
+        
+        # 4. Gọi batch punch out
+        if punch_out_records:
+            try:
+                await batch_punch_out(punch_out_records)
+                LOGGER.info(f"Finalized Punch Out to OrangeHRM: {len(punch_out_records)} records")
+            except Exception as e:
+                LOGGER.error(f"Lỗi khi finalize Punch Out sang OrangeHRM: {e}")
+    
+    except Exception as e:
+        # Log lỗi nhưng KHÔNG raise để không ảnh hưởng MongoDB
+        LOGGER.error(f"Lỗi tổng thể khi sync finalized checkouts sang OrangeHRM: {e}")
