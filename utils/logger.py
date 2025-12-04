@@ -1,4 +1,5 @@
 import platform
+import sys
 import logging
 import logging.config
 from datetime import datetime
@@ -51,7 +52,10 @@ def set_logging(name=LOGGING_NAME, verbose=True, debug=False):
         }
     }
 
-    if COLORLOG_AVAILABLE:
+    # Chỉ dùng color khi output là terminal (không phải file)
+    use_color = COLORLOG_AVAILABLE and sys.stdout.isatty()
+    
+    if use_color:
         formatters["color"] = {
             "()": DualTimezoneColoredFormatter,
             "format": "%(log_color)s" + formatter_str,
@@ -70,14 +74,14 @@ def set_logging(name=LOGGING_NAME, verbose=True, debug=False):
         "console_out": {
             "class": "logging.StreamHandler",
             "level": logging.DEBUG,
-            "formatter": "color" if COLORLOG_AVAILABLE else name,
+            "formatter": "color" if use_color else name,
             "stream": "ext://sys.stdout",
             "filters": ["info_and_below"]  # Chỉ INFO, WARNING, DEBUG
         },
         "console_err": {
             "class": "logging.StreamHandler",
             "level": logging.ERROR,  # ERROR và CRITICAL
-            "formatter": "color" if COLORLOG_AVAILABLE else name,
+            "formatter": "color" if use_color else name,
             "stream": "ext://sys.stderr"
         }
     }
