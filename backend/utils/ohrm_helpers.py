@@ -1,7 +1,7 @@
 from typing import Dict, List, Sequence, TypedDict
 from config.database import get_mysql_session 
 from sqlalchemy import text, bindparam, Date
-from datetime import datetime
+from datetime import datetime, date
 import pytz
 from utils import LOGGER
 
@@ -233,4 +233,321 @@ async def batch_punch_out(records: List[PunchCommand]) -> None:
 
     except Exception as e:
         LOGGER.error(f"Lỗi Batch Punch Out: {e}")
+        raise
+
+
+async def update_punch_in_time(
+    emp_id: int,
+    target_date: date,
+    new_time: datetime,
+    note: str | None = None
+) -> bool:
+    """
+    Cập nhật lại punch_in_time cho bản ghi của employee tại ngày cụ thể.
+    
+    Args:
+        emp_id: OrangeHRM employee_id
+        target_date: Ngày cần tìm bản ghi (date object hoặc datetime)
+        new_time: Thời gian punch in mới (UTC hoặc timezone-aware)
+        note: Ghi chú (optional), nếu None sẽ giữ nguyên note cũ
+    
+    Returns:
+        bool: True nếu update thành công, False nếu không tìm thấy bản ghi
+    
+    Example:
+        >>> from datetime import datetime, date
+        >>> import pytz
+        >>> vn_tz = pytz.timezone('Asia/Saigon')
+        >>> 
+        >>> # Sửa bản ghi ngày 3/12/2025
+        >>> target = date(2025, 12, 3)
+        >>> new_time = datetime(2025, 12, 3, 8, 0, 0, tzinfo=vn_tz)
+        >>> await update_punch_in_time(
+        ...     emp_id=21, 
+        ...     target_date=target,
+        ...     new_time=new_time, 
+        ...     note="Sửa lại giờ"
+        ... )
+    """
+    
+    try:
+        # Chuẩn hóa thời gian
+        utc_time, user_time = _prepare_time_data(new_time)
+        
+        # Chuyển target_date thành date nếu là datetime
+        if isinstance(target_date, datetime):
+            target_date = target_date.date()
+        
+        async with get_mysql_session() as session:
+            try:
+                # Tìm bản ghi tại ngày cụ thể
+                find_query = text("""
+                    SELECT id, punch_in_note
+                    FROM ohrm_attendance_record
+                    WHERE employee_id = :emp_id
+                      AND DATE(punch_in_user_time) = :target_date
+                    ORDER BY id DESC
+                    LIMIT 1
+                """)
+                
+                result = await session.execute(find_query, {
+                    "emp_id": emp_id,
+                    "target_date": target_date
+                })
+                record = result.fetchone()
+                
+                if not record:
+                    LOGGER.warning(
+                        f"Không tìm thấy bản ghi ngày {target_date} "
+                        f"cho employee_id={emp_id}"
+                    )
+                    return False
+                
+                # Chuẩn bị data update
+                update_data = {
+                    "id": record.id,
+                    "utc_time": utc_time,
+                    "user_time": user_time,
+                    "note": note if note is not None else record.punch_in_note
+                }
+                
+                # Update bản ghi
+                update_query = text("""
+                    UPDATE ohrm_attendance_record
+                    SET punch_in_utc_time = :utc_time,
+                        punch_in_user_time = :user_time,
+                        punch_in_note = :note
+                    WHERE id = :id
+                """)
+                
+                await session.execute(update_query, update_data)
+                await session.commit()
+                
+                LOGGER.info(
+                    f"Đã cập nhật punch_in_time cho employee_id={emp_id}, "
+                    f"ngày {target_date}, thời gian mới: {user_time}"
+                )
+                return True
+                
+            except Exception:
+                await session.rollback()
+                raise
+                
+    except Exception as e:
+        LOGGER.error(f"Lỗi khi update punch_in_time: {e}")
+        raise
+
+
+async def update_punch_out_time(
+    emp_id: int,
+    target_date: date,
+    new_time: datetime,
+    note: str | None = None
+) -> bool:
+    """
+    Cập nhật lại punch_out_time cho bản ghi của employee tại ngày cụ thể.
+    
+    Args:
+        emp_id: OrangeHRM employee_id
+        target_date: Ngày cần tìm bản ghi (date object hoặc datetime)
+        new_time: Thời gian punch out mới (UTC hoặc timezone-aware)
+        note: Ghi chú (optional), nếu None sẽ giữ nguyên note cũ
+    
+    Returns:
+        bool: True nếu update thành công, False nếu không tìm thấy bản ghi
+    
+    Example:
+        >>> target = date(2025, 12, 3)
+        >>> new_time = datetime(2025, 12, 3, 18, 0, 0, tzinfo=vn_tz)
+        >>> await update_punch_out_time(
+        ...     emp_id=21,
+        ...     target_date=target,
+        ...     new_time=new_time,
+        ...     note="Sửa lại giờ"
+        ... )
+    """
+    
+    try:
+        # Chuẩn hóa thời gian
+        utc_time, user_time = _prepare_time_data(new_time)
+        
+        # Chuyển target_date thành date nếu là datetime
+        if isinstance(target_date, datetime):
+            target_date = target_date.date()
+        
+        async with get_mysql_session() as session:
+            try:
+                # Tìm bản ghi tại ngày cụ thể
+                find_query = text("""
+                    SELECT id, punch_out_note
+                    FROM ohrm_attendance_record
+                    WHERE employee_id = :emp_id
+                      AND DATE(punch_in_user_time) = :target_date
+                    ORDER BY id DESC
+                    LIMIT 1
+                """)
+                
+                result = await session.execute(find_query, {
+                    "emp_id": emp_id,
+                    "target_date": target_date
+                })
+                record = result.fetchone()
+                
+                if not record:
+                    LOGGER.warning(
+                        f"Không tìm thấy bản ghi ngày {target_date} "
+                        f"cho employee_id={emp_id}"
+                    )
+                    return False
+                
+                # Chuẩn bị data update
+                update_data = {
+                    "id": record.id,
+                    "utc_time": utc_time,
+                    "user_time": user_time,
+                    "note": note if note is not None else record.punch_out_note
+                }
+                
+                # Update bản ghi
+                update_query = text("""
+                    UPDATE ohrm_attendance_record
+                    SET punch_out_utc_time = :utc_time,
+                        punch_out_user_time = :user_time,
+                        punch_out_note = :note,
+                        state = 'PUNCHED OUT'
+                    WHERE id = :id
+                """)
+                
+                await session.execute(update_query, update_data)
+                await session.commit()
+                
+                LOGGER.info(
+                    f"Đã cập nhật punch_out_time cho employee_id={emp_id}, "
+                    f"ngày {target_date}, thời gian mới: {user_time}"
+                )
+                return True
+                
+            except Exception:
+                await session.rollback()
+                raise
+                
+    except Exception as e:
+        LOGGER.error(f"Lỗi khi update punch_out_time: {e}")
+        raise
+
+
+async def update_punch_times(
+    emp_id: int,
+    target_date: date,
+    punch_in_time: datetime | None = None,
+    punch_out_time: datetime | None = None,
+    punch_in_note: str | None = None,
+    punch_out_note: str | None = None
+) -> bool:
+    """
+    Cập nhật cả punch_in và punch_out time cho bản ghi tại ngày cụ thể.
+    
+    Args:
+        emp_id: OrangeHRM employee_id
+        target_date: Ngày cần tìm bản ghi (date object hoặc datetime)
+        punch_in_time: Thời gian punch in mới (optional)
+        punch_out_time: Thời gian punch out mới (optional)
+        punch_in_note: Ghi chú punch in (optional)
+        punch_out_note: Ghi chú punch out (optional)
+    
+    Returns:
+        bool: True nếu update thành công, False nếu không tìm thấy bản ghi
+    
+    Example:
+        >>> target = date(2025, 12, 3)
+        >>> in_time = datetime(2025, 12, 3, 8, 0, 0, tzinfo=vn_tz)
+        >>> out_time = datetime(2025, 12, 3, 18, 0, 0, tzinfo=vn_tz)
+        >>> await update_punch_times(
+        ...     emp_id=21,
+        ...     target_date=target,
+        ...     punch_in_time=in_time,
+        ...     punch_out_time=out_time,
+        ...     punch_in_note="Sửa check-in",
+        ...     punch_out_note="Sửa check-out"
+        ... )
+    """
+    
+    if punch_in_time is None and punch_out_time is None:
+        LOGGER.warning("Không có thời gian nào để update!")
+        return False
+    
+    # Chuyển target_date thành date nếu là datetime
+    if isinstance(target_date, datetime):
+        target_date = target_date.date()
+    
+    try:
+        async with get_mysql_session() as session:
+            try:
+                # Tìm bản ghi tại ngày cụ thể
+                find_query = text("""
+                    SELECT id, punch_in_note, punch_out_note
+                    FROM ohrm_attendance_record
+                    WHERE employee_id = :emp_id
+                      AND DATE(punch_in_user_time) = :target_date
+                    ORDER BY id DESC
+                    LIMIT 1
+                """)
+                
+                result = await session.execute(find_query, {
+                    "emp_id": emp_id,
+                    "target_date": target_date
+                })
+                record = result.fetchone()
+                
+                if not record:
+                    LOGGER.warning(
+                        f"Không tìm thấy bản ghi ngày {target_date} "
+                        f"cho employee_id={emp_id}"
+                    )
+                    return False
+                
+                # Chuẩn bị data update
+                update_fields = []
+                update_data = {"id": record.id}
+                
+                if punch_in_time is not None:
+                    utc_in, user_in = _prepare_time_data(punch_in_time)
+                    update_fields.append("punch_in_utc_time = :in_utc")
+                    update_fields.append("punch_in_user_time = :in_user")
+                    update_fields.append("punch_in_note = :in_note")
+                    update_data["in_utc"] = utc_in
+                    update_data["in_user"] = user_in
+                    update_data["in_note"] = punch_in_note if punch_in_note is not None else record.punch_in_note
+                
+                if punch_out_time is not None:
+                    utc_out, user_out = _prepare_time_data(punch_out_time)
+                    update_fields.append("punch_out_utc_time = :out_utc")
+                    update_fields.append("punch_out_user_time = :out_user")
+                    update_fields.append("punch_out_note = :out_note")
+                    update_fields.append("state = 'PUNCHED OUT'")
+                    update_data["out_utc"] = utc_out
+                    update_data["out_user"] = user_out
+                    update_data["out_note"] = punch_out_note if punch_out_note is not None else record.punch_out_note
+                
+                # Build và execute query
+                update_query = text(f"""
+                    UPDATE ohrm_attendance_record
+                    SET {', '.join(update_fields)}
+                    WHERE id = :id
+                """)
+                
+                await session.execute(update_query, update_data)
+                await session.commit()
+                
+                LOGGER.info(
+                    f"Đã cập nhật thời gian cho employee_id={emp_id}, ngày {target_date}"
+                )
+                return True
+                
+            except Exception:
+                await session.rollback()
+                raise
+                
+    except Exception as e:
+        LOGGER.error(f"Lỗi khi update punch times: {e}")
         raise
