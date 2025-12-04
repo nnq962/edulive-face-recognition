@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import { Table, Tag, Button, Input, Space, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
@@ -30,6 +30,7 @@ const EmployeeManagement: React.FC = () => {
     const [selectedEmployee, setSelectedEmployee] = useState<EmployeeData | null>(null)
     const [employeeList, setEmployeeList] = useState<EmployeeData[]>([])
     const [loading, setLoading] = useState(false)
+    const { departments } = useDepartments()
 
     // Pagination state
     const [pagination, setPagination] = useState({
@@ -251,6 +252,18 @@ const EmployeeManagement: React.FC = () => {
         }
     }
 
+    // Lấy danh sách position unique từ employeeList
+    const positionFilters = useMemo(() => {
+        const positions = employeeList
+            .map(emp => emp.position)
+            .filter((pos): pos is string => pos !== '-' && pos !== null && pos !== undefined)
+        const uniquePositions = Array.from(new Set(positions)).sort()
+        return uniquePositions.map(pos => ({
+            text: pos,
+            value: pos,
+        }))
+    }, [employeeList])
+
     const columns: ColumnsType<EmployeeData> = [
         {
             title: 'Tên nhân viên',
@@ -293,18 +306,18 @@ const EmployeeManagement: React.FC = () => {
             dataIndex: 'position',
             key: 'position',
             width: 150,
-            ...getColumnSearchProps('position'),
+            filters: positionFilters,
+            onFilter: (value, record) => record.position === value,
         },
         {
             title: 'Phòng ban',
             dataIndex: 'department',
             key: 'department',
             width: 120,
-            filters: [
-                { text: 'Tầng 1', value: 'Tầng 1' },
-                { text: 'Tầng 2', value: 'Tầng 2' },
-                { text: 'Tầng 3', value: 'Tầng 3' },
-            ],
+            filters: departments.map(dept => ({
+                text: dept.name,
+                value: dept.name,
+            })),
             onFilter: (value, record) => record.department === value,
         },
         {
