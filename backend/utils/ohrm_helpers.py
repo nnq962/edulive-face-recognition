@@ -1,6 +1,6 @@
 from typing import Dict, List, Sequence, TypedDict
 from config.database import get_mysql_session 
-from sqlalchemy import text, bindparam
+from sqlalchemy import text, bindparam, Date
 from datetime import datetime
 import pytz
 from utils import LOGGER
@@ -125,17 +125,28 @@ async def batch_punch_out(records: List[PunchCommand]) -> None:
     Args:
         records: Danh sách `PunchCommand`, mỗi phần tử lấy timestamp
                  cuối cùng sau 17h30 của user.
-        Cập nhật cả các session đang mở VÀ đã đóng (bản ghi mới nhất).
+        Cập nhật cả các session đang mở VÀ đã đóng (bản ghi mới nhất CÙNG NGÀY).
     """
     if not records:
         return
 
     emp_ids = [rec['emp_id'] for rec in records]
+    
+    # Lấy ngày từ record đầu tiên (giả sử tất cả records cùng ngày)
+    # Chuyển sang múi giờ VN để lấy DATE
+    first_time = records[0].get('time')
+    if first_time.tzinfo is None:
+        check_time_vn = VN_TZ.localize(first_time)
+    else:
+        check_time_vn = first_time.astimezone(VN_TZ)
+    
+    # Lấy DATE để so sánh (format: YYYY-MM-DD)
+    check_date = check_time_vn.date()
 
     try:
         async with get_mysql_session() as session:
             try:
-                # Tìm bản ghi MỚI NHẤT của mỗi employee (dù đã đóng hay chưa)
+                # Tìm bản ghi MỚI NHẤT CÙNG NGÀY của mỗi employee
                 find_query = text("""
                     SELECT ar1.id, ar1.employee_id, ar1.punch_out_utc_time
                     FROM ohrm_attendance_record ar1
@@ -143,13 +154,20 @@ async def batch_punch_out(records: List[PunchCommand]) -> None:
                         SELECT employee_id, MAX(id) as max_id
                         FROM ohrm_attendance_record
                         WHERE employee_id IN :emp_ids
+                          AND DATE(punch_in_user_time) = :check_date
                         GROUP BY employee_id
                     ) ar2 ON ar1.employee_id = ar2.employee_id 
                          AND ar1.id = ar2.max_id
                 """)
-                find_query = find_query.bindparams(bindparam('emp_ids', expanding=True))
+                find_query = find_query.bindparams(
+                    bindparam('emp_ids', expanding=True),
+                    bindparam('check_date', type_=Date)
+                )
                 
-                result = await session.execute(find_query, {"emp_ids": emp_ids})
+                result = await session.execute(find_query, {
+                    "emp_ids": emp_ids,
+                    "check_date": check_date
+                })
                 session_map = {
                     row.employee_id: {
                         'id': row.id,
@@ -159,7 +177,9 @@ async def batch_punch_out(records: List[PunchCommand]) -> None:
                 }
                 
                 if not session_map:
-                    LOGGER.warning("Không tìm thấy bản ghi nào để Punch Out.")
+                    LOGGER.warning(
+                        f"Không tìm thấy bản ghi nào CÙNG NGÀY ({check_date}) để Punch Out."
+                    )
                     return
 
                 update_data = []
@@ -203,7 +223,7 @@ async def batch_punch_out(records: List[PunchCommand]) -> None:
                     await session.execute(update_query, update_data)
                     await session.commit()
                     LOGGER.info(
-                        f"Punch Out thành công {len(update_data)} bản ghi "
+                        f"Punch Out thành công {len(update_data)} bản ghi ngày {check_date} "
                         f"(Lần đầu: {first_punch_out}, Cập nhật lại: {re_punch_out}, "
                         f"Bỏ qua: {skipped_count})"
                     )
