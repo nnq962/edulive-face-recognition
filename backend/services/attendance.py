@@ -824,16 +824,14 @@ async def process_attendance_detections(
                     if send_welcome:
                         # Check-in message
                         telegram_message = (
-                            f"👋 <b>Xin chào {full_name}!</b>\n\n"
-                            f"✅ Đã check-in thành công\n"
-                            f"🕐 Thời gian: {timestamp_vn_str}"
+                            f"<b>Xin chào {full_name}!</b>\n\n"
+                            f"<b>Check in</b>: {timestamp_vn_str}"
                         )
                     else:  # send_goodbye
                         # Check-out message
                         telegram_message = (
-                            f"👋 <b>Tạm biệt {full_name}!</b>\n\n"
-                            f"✅ Đã check-out thành công\n"
-                            f"🕐 Thời gian: {timestamp_vn_str}"
+                            f"<b>Tạm biệt {full_name}!</b>\n\n"
+                            f"<b>Check out</b>: {timestamp_vn_str}"
                         )
 
                     async def _safe_send():

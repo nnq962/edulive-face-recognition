@@ -104,7 +104,7 @@ async def telegram_webhook(
             LOGGER.warning(f"Received message from user without username (chat_id: {chat_id})")
             await send_telegram_message(
                 chat_id,
-                "⚠️ Xin lỗi, bạn chưa có Telegram username. Vui lòng cấu hình Telegram username trong tài khoản của bạn trước khi sử dụng bot này."
+                "Xin lỗi, bạn chưa có Telegram username. Vui lòng cấu hình Telegram username trong tài khoản của bạn trước khi sử dụng bot này."
             )
             return {"ok": True}
         
@@ -115,7 +115,7 @@ async def telegram_webhook(
             LOGGER.warning(f"Telegram username {telegram_username} not found in database")
             await send_telegram_message(
                 chat_id,
-                "⚠️ Telegram username của bạn chưa được đăng ký trong hệ thống.\n\n"
+                "Telegram username của bạn chưa được đăng ký trong hệ thống.\n\n"
                 "Vui lòng truy cập cài đặt tài khoản để cấu hình Telegram username trong tài khoản của bạn trước khi sử dụng bot này."
             )
             return {"ok": True}
@@ -130,7 +130,7 @@ async def telegram_webhook(
                 # Đã đăng ký rồi
                 await send_telegram_message(
                     chat_id,
-                    "ℹ️ Bạn đã đăng ký nhận thông báo trước đó.\n\n"
+                    "Bạn đã đăng ký nhận thông báo trước đó.\n\n"
                     "Bạn sẽ tiếp tục nhận được thông báo từ hệ thống."
                 )
                 LOGGER.info(f"User {telegram_username} already subscribed")
@@ -141,13 +141,13 @@ async def telegram_webhook(
                 if success:
                     await send_telegram_message(
                         chat_id,
-                        "✅ Đăng ký thành công! Bạn sẽ nhận được thông báo từ hệ thống."
+                        "Đăng ký thành công! Bạn sẽ nhận được thông báo từ hệ thống."
                     )
                     LOGGER.info(f"User {telegram_username} successfully subscribed")
                 else:
                     await send_telegram_message(
                         chat_id,
-                        "❌ Đăng ký thất bại. Vui lòng thử lại sau."
+                        "Đăng ký thất bại. Vui lòng thử lại sau."
                     )
                     LOGGER.error(f"Failed to subscribe user {telegram_username}")
         
@@ -157,7 +157,7 @@ async def telegram_webhook(
                 # Chưa đăng ký
                 await send_telegram_message(
                     chat_id,
-                    "ℹ️ Bạn chưa đăng ký nhận thông báo.\n\n"
+                    "Bạn chưa đăng ký nhận thông báo.\n\n"
                     "Gõ \"Đăng ký\" để bắt đầu nhận thông báo từ hệ thống."
                 )
                 LOGGER.info(f"User {telegram_username} tried to unsubscribe but was not subscribed")
@@ -168,13 +168,13 @@ async def telegram_webhook(
                 if success:
                     await send_telegram_message(
                         chat_id,
-                        "✅ Đã hủy đăng ký thành công. Bạn sẽ không còn nhận được thông báo từ hệ thống."
+                        "Đã hủy đăng ký thành công. Bạn sẽ không còn nhận được thông báo từ hệ thống."
                     )
                     LOGGER.info(f"User {telegram_username} successfully unsubscribed")
                 else:
                     await send_telegram_message(
                         chat_id,
-                        "❌ Hủy đăng ký thất bại. Vui lòng thử lại sau."
+                        "Hủy đăng ký thất bại. Vui lòng thử lại sau."
                     )
                     LOGGER.error(f"Failed to unsubscribe user {telegram_username}")
         
@@ -182,14 +182,16 @@ async def telegram_webhook(
             # Hiển thị help
             await send_telegram_message(
                 chat_id,
-                "📋 Các lệnh được hỗ trợ:\n\n"
-                f"• {SUBSCRIBE_COMMAND} - Đăng ký nhận thông báo từ hệ thống\n"
-                f"• {UNSUBSCRIBE_COMMAND} - Hủy đăng ký nhận thông báo\n"
-                f"• {STATUS_COMMAND} - Xem trạng thái tài khoản\n"
-                f"• {HELP_COMMAND} - Xem danh sách các lệnh này\n\n"
-                "💡 Bạn có thể gõ lệnh không phân biệt hoa thường."
+                "<b>Các lệnh được hỗ trợ</b>\n\n"
+                f"• <b>{SUBSCRIBE_COMMAND}</b>: Đăng ký nhận thông báo từ hệ thống\n"
+                f"• <b>{UNSUBSCRIBE_COMMAND}</b>: Hủy đăng ký nhận thông báo\n"
+                f"• <b>{STATUS_COMMAND}</b>: Xem trạng thái tài khoản\n"
+                f"• <b>{HELP_COMMAND}</b>: Xem danh sách các lệnh này\n\n"
+                "💡 <i>Bạn có thể gõ lệnh không phân biệt hoa thường.</i>",
+                parse_mode="HTML"
             )
             LOGGER.debug(f"User {telegram_username} requested help")
+
         
         elif matches_command(text, STATUS_COMMAND):
             # Hiển thị trạng thái user
@@ -203,23 +205,23 @@ async def telegram_webhook(
             
             # Format status message với HTML
             status_message = (
-                f"📊 <b>Trạng thái tài khoản</b>\n\n"
-                f"👤 <b>Họ tên:</b> {full_name}\n"
-                f"🔖 <b>Telegram:</b> @{user_telegram_username}\n"
-                f"💼 <b>Chức vụ:</b> {user_position}\n"
-                f"🏢 <b>Phòng ban:</b> {user_department}\n"
-                f"👑 <b>Vai trò:</b> {user_role}\n\n"
-                f"🔔 <b>Trạng thái thông báo:</b> "
+                f"<b>Trạng thái tài khoản</b>\n\n"
+                f"<b>Họ tên:</b> {full_name}\n"
+                f"<b>Telegram:</b> @{user_telegram_username}\n"
+                f"<b>Chức vụ:</b> {user_position}\n"
+                f"<b>Phòng ban:</b> {user_department}\n"
+                f"<b>Vai trò:</b> {user_role}\n\n"
+                f"<b>Trạng thái thông báo:</b> "
             )
             
             if is_subscribed:
                 status_message += "Đã đăng ký"
                 if user_chat_id:
-                    status_message += f"\n💬 <b>Chat ID:</b> {user_chat_id}"
+                    status_message += f"\n<b>Chat ID:</b> {user_chat_id}"
             else:
                 status_message += "Chưa đăng ký"
             
-            status_message += f"\n\n🟢 <b>Trạng thái tài khoản:</b> {'Hoạt động' if user_is_active else 'Tạm khóa'}"
+            status_message += f"\n\n<b>Trạng thái tài khoản:</b> {'Hoạt động' if user_is_active else 'Tạm khóa'}"
             
             await send_telegram_message(
                 chat_id,
@@ -233,8 +235,8 @@ async def telegram_webhook(
             LOGGER.debug(f"Unknown command from {telegram_username}: {text}")
             await send_telegram_message(
                 chat_id,
-                "❓ Xin lỗi, tôi không hiểu lệnh này.\n\n"
-                f"Gõ \"{HELP_COMMAND}\" để xem các lệnh đang được hỗ trợ."
+                "<b>Lệnh không hợp lệ.</b>\n\n"
+                f"💡 Gõ \"{HELP_COMMAND}\" để xem các lệnh đang được hỗ trợ."
             )
         
         return {"ok": True}
