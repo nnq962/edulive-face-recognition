@@ -187,7 +187,7 @@ async def telegram_webhook(
                 f"• <b>{UNSUBSCRIBE_COMMAND}</b>: Hủy đăng ký nhận thông báo\n"
                 f"• <b>{STATUS_COMMAND}</b>: Xem trạng thái tài khoản\n"
                 f"• <b>{HELP_COMMAND}</b>: Xem danh sách các lệnh này\n\n"
-                "💡 <i>Bạn có thể gõ lệnh không phân biệt hoa thường.</i>",
+                "💡 Bạn có thể gõ lệnh không phân biệt hoa thường.",
                 parse_mode="HTML"
             )
             LOGGER.debug(f"User {telegram_username} requested help")
@@ -236,7 +236,8 @@ async def telegram_webhook(
             await send_telegram_message(
                 chat_id,
                 "<b>Lệnh không hợp lệ.</b>\n\n"
-                f"💡 Gõ \"{HELP_COMMAND}\" để xem các lệnh đang được hỗ trợ."
+                f"💡 Gõ \"{HELP_COMMAND}\" để xem các lệnh đang được hỗ trợ.",
+                parse_mode="HTML"
             )
         
         return {"ok": True}
