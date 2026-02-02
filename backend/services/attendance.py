@@ -488,7 +488,8 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
         ws.column_dimensions[get_column_letter(i)].width = width
     
     # Write data
-    weekday_names = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+    # isoweekday(): 1 = Thứ hai, 2 = Thứ ba, ..., 7 = Chủ nhật
+    weekday_names = ['', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật']
     
     for row_num, record in enumerate(data, 2):
         # STT
@@ -524,7 +525,7 @@ def generate_excel_report(data: List[Dict[str, Any]], month_str: str) -> str:
         
         # Thứ
         cell = ws.cell(row=row_num, column=6)
-        cell.value = weekday_names[date_obj.weekday() if date_obj.weekday() < 6 else 6]
+        cell.value = weekday_names[date_obj.isoweekday()]
         cell.alignment = cell_alignment
         cell.border = border
         
