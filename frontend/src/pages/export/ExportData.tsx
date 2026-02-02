@@ -86,7 +86,7 @@ const ExportData: React.FC = () => {
   ) => {
     try {
       setLoading(true)
-      
+
       // Build params cho API
       const params: any = {
         month,
@@ -143,36 +143,19 @@ const ExportData: React.FC = () => {
   }
 
   // Helper function để tính tổng giờ làm việc
-  // Quy tắc: 
-  // - Nếu check out trước 13h30: Tổng giờ = 12h - check in
-  // - Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (nghỉ trưa)
+  // Quy tắc: Tổng giờ = check out - check in
   const calculateTotalHours = (checkIn: string | null, checkOut: string | null): string => {
     if (!checkIn || !checkOut) return '0h 0m'
 
     const start = dayjs(checkIn)
     const end = dayjs(checkOut)
-    
-    // Kiểm tra check out có trước 13h30 không
-    const checkOutHour = end.hour()
-    const checkOutMinute = end.minute()
-    const isBeforeLunch = checkOutHour < 13 || (checkOutHour === 13 && checkOutMinute < 30)
-    
-    let totalMinutes: number
-    
-    // Nếu check out trước 13h30: Tổng giờ = 12h - check in
-    if (isBeforeLunch) {
-      const noon = dayjs(start).hour(12).minute(0).second(0).millisecond(0)
-      totalMinutes = noon.diff(start, 'minute')
-    } 
-    // Nếu check out sau hoặc bằng 13h30: Tổng giờ = check out - check in - 1.5h (90 phút)
-    else {
-      const diffMinutes = end.diff(start, 'minute')
-      totalMinutes = diffMinutes - 90 // Trừ 1.5h nghỉ trưa
-    }
-    
+
+    // Tính tổng số phút
+    let totalMinutes = end.diff(start, 'minute')
+
     // Đảm bảo không âm
     if (totalMinutes < 0) totalMinutes = 0
-    
+
     const hours = Math.floor(totalMinutes / 60)
     const minutes = totalMinutes % 60
 
@@ -183,7 +166,7 @@ const ExportData: React.FC = () => {
   useEffect(() => {
     const month = filterMonth.format('YYYY-MM')
     const date = filterDate ? filterDate.format('YYYY-MM-DD') : undefined
-    
+
     fetchMonthlyReport(
       month,
       currentPage,
@@ -201,7 +184,7 @@ const ExportData: React.FC = () => {
     setFilterUserId(undefined) // Xóa user đã chọn
     setFilterDepartment(undefined) // Xóa phòng ban
     setCurrentPage(1) // Reset về trang 1
-    
+
     // API sẽ được gọi lại tự động qua useEffect
   }
 
@@ -209,7 +192,7 @@ const ExportData: React.FC = () => {
   const handleRefresh = () => {
     const month = filterMonth.format('YYYY-MM')
     const date = filterDate ? filterDate.format('YYYY-MM-DD') : undefined
-    
+
     fetchMonthlyReport(
       month,
       currentPage,
@@ -224,7 +207,7 @@ const ExportData: React.FC = () => {
   const handleExportExcel = async () => {
     try {
       setExportLoading(true)
-      
+
       // Gửi filters (KHÔNG gửi data)
       await exportdataApi.exportMonthlyReportToExcel({
         month: filterMonth.format('YYYY-MM'),
@@ -232,10 +215,10 @@ const ExportData: React.FC = () => {
         date: filterDate ? filterDate.format('YYYY-MM-DD') : undefined,
         department: filterDepartment,
       })
-      
+
       // Hiển thị thông báo thành công
       message.success('Export Excel successful')
-      
+
     } catch (error: any) {
       console.error('Error exporting Excel:', error)
       message.error(error?.response?.data?.detail || 'Failed to export Excel')
@@ -553,7 +536,7 @@ const ExportData: React.FC = () => {
             spinning: loading,
             indicator: <LoadingOutlined spin />,
             tip: 'Loading all attendance data...',
-        }}
+          }}
           pagination={{
             current: currentPage,
             pageSize: pageSize,
