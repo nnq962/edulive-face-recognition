@@ -1,6 +1,7 @@
 # backend/services/user.py
 
 import os
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from backend.schemas.user import UserCreate, UserUpdate, UserUpdateResponse
 from backend.models.user import UserModel
@@ -8,6 +9,11 @@ from backend.utils.password import hash_password, verify_password
 from backend.utils.pagination import PaginationParams
 from backend.utils.filters import UserFilterParams
 from backend.services.insightface import detect_faces, get_face_embeddings
+from backend.utils.ohrm_helpers import (
+    get_employee_ids,
+    update_punch_in_time,
+    update_punch_out_time
+)
 from utils import LOGGER
 import re
 from unidecode import unidecode
@@ -16,9 +22,10 @@ from config import paths
 from bson import ObjectId
 from utils.time_helper import utc_now
 from PIL import Image
-import time
+import time as time_module
 import shutil
 import pillow_heif
+import pytz
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from fastapi import UploadFile, HTTPException
@@ -465,7 +472,7 @@ async def upload_user_faces(
     # 2. Lưu từng ảnh và kiểm tra hợp lệ
     for file in files:
         ext = Path(file.filename).suffix.lower()
-        timestamp = int(time.time() * 1000)
+        timestamp = int(time_module.time() * 1000)
         out_name = f"face_{timestamp}.jpg"
         out_path = faces_dir / out_name
 
@@ -579,3 +586,103 @@ async def change_user_password(
     )
 
     return True
+
+
+ATTENDANCE_COLLECTION = "attendances"
+
+# Cấu hình múi giờ
+VN_TZ = pytz.timezone('Asia/Saigon')
+
+
+async def update_attendance_time(
+    db: AsyncIOMotorDatabase,
+    email: str,
+    attendance_type: str,
+    time: datetime,
+) -> Dict[str, bool]:
+    """
+    Cập nhật thời gian chấm công (check_in hoặc check_out) ở cả MongoDB và MySQL.
+
+    Args:
+        db: Database instance
+        email: Email của user
+        attendance_type: "check_in" hoặc "check_out"
+        time: Thời gian mới (naive sẽ được coi là VN timezone)
+
+    Returns:
+        Dict với kết quả: {"mongodb": bool, "mysql": bool}
+    """
+    result = {"mongodb": False, "mysql": False}
+
+    users_collection = db[USER_COLLECTION]
+    attendances_collection = db[ATTENDANCE_COLLECTION]
+
+    # Tìm user bằng email
+    user = await users_collection.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy user với email: {email}")
+
+    user_id = user["_id"]
+
+    # Convert time sang VN timezone nếu cần
+    if time.tzinfo is None:
+        time = VN_TZ.localize(time)
+
+    target_date = time.astimezone(VN_TZ).date()
+
+    # Tạo date field (start of day in VN timezone, converted to UTC)
+    target_datetime_vn = datetime.combine(target_date, datetime.min.time())
+    target_datetime_vn = VN_TZ.localize(target_datetime_vn)
+    target_datetime_utc = target_datetime_vn.astimezone(timezone.utc)
+
+    # === MongoDB: Tìm và cập nhật attendance record ===
+    attendance = await attendances_collection.find_one({
+        "user_id": user_id,
+        "date": target_datetime_utc
+    })
+
+    # Nếu không tìm thấy, thử với range query
+    if not attendance:
+        end_datetime = datetime.combine(target_date, datetime.max.time())
+        end_datetime = VN_TZ.localize(end_datetime).astimezone(timezone.utc)
+        attendance = await attendances_collection.find_one({
+            "user_id": user_id,
+            "date": {
+                "$gte": target_datetime_utc,
+                "$lte": end_datetime
+            }
+        })
+
+    if attendance:
+        time_utc = time.astimezone(timezone.utc)
+
+        if attendance_type == "check_in":
+            update_data = {"check_in_time": time_utc}
+        else:
+            update_data = {"check_out_time": time_utc}
+
+        await attendances_collection.update_one(
+            {"_id": attendance["_id"]},
+            {"$set": update_data}
+        )
+        result["mongodb"] = True
+        LOGGER.info(f"Đã cập nhật MongoDB {attendance_type} cho email: {email}, ngày: {target_date}")
+    else:
+        LOGGER.warning(f"Không tìm thấy attendance record trong MongoDB cho email: {email}, ngày: {target_date}")
+
+    # === MySQL: Lấy emp_id và update ===
+    email_to_emp_id = await get_employee_ids([email])
+    if not email_to_emp_id or email not in email_to_emp_id:
+        LOGGER.error(f"Không tìm thấy emp_id cho email: {email} trong MySQL")
+        return result
+
+    emp_id = email_to_emp_id[email]
+
+    if attendance_type == "check_in":
+        success = await update_punch_in_time(emp_id, target_date, time)
+    else:
+        success = await update_punch_out_time(emp_id, target_date, time)
+
+    result["mysql"] = success
+
+    return result

@@ -668,3 +668,51 @@ async def change_my_password_route(
         message="Password updated successfully",
         data=None,
     )
+
+
+# ==================== Update Attendance Time API (VIP) ====================
+from pydantic import BaseModel
+from datetime import datetime as dt_datetime
+from backend.services.user import update_attendance_time
+
+
+class UpdateAttendanceRequest(BaseModel):
+    email: str
+    type: Literal["check_in", "check_out"]
+    time: dt_datetime
+
+
+@router.patch(
+    "/update-attendance",
+    response_model=ApiResponse[dict],
+    response_model_exclude_none=True,
+    responses={
+        404: {
+            "model": ApiError,
+            "description": "User not found",
+        },
+        500: {
+            "model": ApiError,
+            "description": "Internal Server Error",
+        },
+    },
+)
+async def update_attendance_route(
+    payload: UpdateAttendanceRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Made by NNQ with ❤️
+    """
+    result = await update_attendance_time(
+        db=db,
+        email=payload.email,
+        attendance_type=payload.type,
+        time=payload.time,
+    )
+
+    return ApiResponse[dict](
+        success=True,
+        message=f"Đã cập nhật {payload.type} cho {payload.email}",
+        data=result,
+    )
