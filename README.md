@@ -1,11 +1,11 @@
-# Edulive Face Recognition
+# Face Recognition
 
 Hệ thống điểm danh khuôn mặt thời gian thực sử dụng AI, được thiết kế cho môi trường giáo dục. Hệ thống tích hợp nhận diện khuôn mặt (InsightFace + FAISS), backend API (FastAPI), và giao diện quản lý (React + Ant Design).
 
 ## 📋 Tổng quan kiến trúc
 
 ```
-edulive-face-recognition/
+face-recognition/
 ├── ai_service/          # Dịch vụ AI: phát hiện & nhận diện khuôn mặt (InsightFace, FAISS)
 ├── backend/             # Backend API (FastAPI + Uvicorn)
 │   ├── routes/          # API endpoints (user, auth, department, attendance, telegram)
@@ -49,14 +49,14 @@ edulive-face-recognition/
 
 ```bash
 git clone <repository-url>
-cd edulive-face-recognition
+cd face-recognition
 ```
 
 ### 2. Tạo môi trường Conda
 
 ```bash
 conda env create -f environment.yml
-conda activate edulive-face-recognition
+conda activate face-recognition
 ```
 
 > **Lưu ý**: File `environment.yml` bao gồm tất cả các dependencies Python cần thiết (PyTorch, InsightFace, FastAPI, Motor, SQLAlchemy, v.v.). Quá trình cài đặt có thể mất vài phút do các thư viện GPU.
@@ -139,7 +139,7 @@ cd ..
 ### Chạy Backend API
 
 ```bash
-conda activate edulive-face-recognition
+conda activate face-recognition
 uvicorn backend.main:app --host 0.0.0.0 --port 9620
 ```
 
@@ -148,7 +148,7 @@ Backend sẽ khởi động tại `http://localhost:9620`. Truy cập Swagger UI
 ### Chạy AI Service (Face Recognition)
 
 ```bash
-conda activate edulive-face-recognition
+conda activate face-recognition
 python -m ai_service.main
 ```
 
@@ -180,7 +180,7 @@ Sau đó reload Supervisor:
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start edulive-face-recognition-app
+sudo supervisorctl start face-recognition-app
 ```
 
 Kiểm tra trạng thái:
